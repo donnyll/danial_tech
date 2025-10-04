@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tanjung Homemade Creative — Gas Biz System</title>
+  <style>
+    :root{
+      --bg:#0b1020; --card:#121a33; --muted:#94a3b8; --text:#e6edf3; --accent:#60a5fa; --ok:#34d399; --warn:#f59e0b; --danger:#ef4444;
+      --chip1:#6366f1; --chip2:#10b981; --chip3:#f59e0b; --chip4:#ef4444; --chip5:#06b6d4; --chip6:#f472b6;
+      --border:#243055; --table:#0f1530; --input:#0c1227
+    }
+    [data-theme="light"]{
+      --bg:#f7f8fb; --card:#ffffff; --muted:#475569; --text:#0f172a; --accent:#2563eb; --ok:#059669; --warn:#d97706; --danger:#dc2626;
+      --chip1:#4338ca; --chip2:#047857; --chip3:#b45309; --chip4:#b91c1c; --chip5:#0e7490; --chip6:#a21caf;
+      --border:#e5e7eb; --table:#f1f5f9; --input:#f8fafc
+    }
+    *{box-sizing:border-box}
+    body{font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; margin:0; background:var(--bg); color:var(--text); font-size: 16px;}
+    header{position:sticky; top:0; z-index:20; backdrop-filter:saturate(160%) blur(8px); background:color-mix(in oklab, var(--bg), transparent 35%); border-bottom:1px solid var(--border)}
+    .container{max-width:1100px; margin:auto; padding:16px}
+    .row{display:flex; gap:12px; flex-wrap:wrap}
+    .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px}
+    .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--table); border:1px solid var(--border); border-radius:999px; font-size:12px}
+    .tabs{display:flex; flex-wrap:wrap; gap:8px}
+    .tab-btn{border:1px solid var(--border); background:var(--card); color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer}
+    .tab-btn.active{outline:2px solid var(--accent)}
+    .grid{display:grid; gap:12px}
+    .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    label{font-size:12px; color:var(--muted)}
+    input, select, textarea{width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--input); color:var(--text); font-size:1rem}
+    textarea{min-height:72px}
+    button{cursor:pointer; border:1px solid var(--border); background:var(--accent); color:white; padding:10px 14px; border-radius:12px}
+    button.secondary{background:var(--card); color:var(--text)}
+    button.ghost{background:transparent}
+    button.danger{background:var(--danger)}
+    .summary-bar{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px;}
+    .kpi{padding:10px 12px; border-radius:14px; background:var(--card); border:1px solid var(--border)}
+    .kpi h4{margin:0; font-size:12px; color:var(--muted)}
+    .kpi .v{font-size:18px; font-weight:700}
+    table{width:100%; border-collapse:separate; border-spacing:0}
+    th,td{border-bottom:1px solid var(--border); padding:10px; text-align:left; vertical-align:top}
+    thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
+    .table-wrap{max-width:100%; overflow-x:auto; background:var(--table); border:1px solid var(--border); border-radius:14px; -webkit-overflow-scrolling: touch;}
+    details{border:1px solid var(--border); border-radius:12px; background:var(--card)}
+    details>summary{cursor:pointer; list-style:none; padding:10px 12px;}
+    details[open]>summary{border-bottom:1px solid var(--border)}
+    details>summary::-webkit-details-marker{display:none}
+    .chip{display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border)}
+    .b1{background:color-mix(in oklab, var(--chip1), transparent 80%); color:var(--chip1)}
+    .b2{background:color-mix(in oklab, var(--chip2), transparent 80%); color:var(--chip2)}
+    .b3{background:color-mix(in oklab, var(--chip3), transparent 80%); color:var(--chip3)}
+    .b4{background:color-mix(in oklab, var(--chip4), transparent 80%); color:var(--chip4)}
+    .b5{background:color-mix(in oklab, var(--chip5), transparent 80%); color:var(--chip5)}
+    .b6{background:color-mix(in oklab, var(--chip6), transparent 80%); color:var(--chip6)}
+    .hide{display:none}
+    .right{display:flex; gap:8px; align-items:center; justify-content:flex-end}
+    .note{font-size:12px; color:var(--muted)}
+    .divider{height:1px; background:var(--border); margin:10px 0}
+    .text-right { text-align: right !important; }
+    .text-right > div { justify-content: flex-end; }
+    .collapsed { opacity: 0; max-height: 0; padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; border: none !important; overflow: hidden; transition: all 0.3s ease-out; }
+
+    /* ====== ANDROID MOBILE H-FLOW FIXES ====== */
+    html, body { max-width: 100vw; overflow-x: hidden; overscroll-behavior: contain; }
+    main.container, .card, details, .table-wrap {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: clip; /* modern horizontal clip to prevent right-pull */
+    }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap table {
+      width: 100%;
+      min-width: clamp(320px, 90vw, 800px); /* responsive min without exceeding viewport */
+      table-layout: auto;
+    }
+    details { display: block; width: 100%; overflow-x: hidden; }
+
+    /* Optional smoother state bila expand all */
+    body.toggle-expanded {
+      height: 100vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+
+    @media (max-width: 768px) {
+      .container { padding: 8px; }
+      .card { padding: 12px; }
+      h2 { font-size: 1.1rem; }
+      .pill { font-size: 10px; padding: 4px 8px; }
+      button { padding: 8px 12px; font-size: 14px;}
+      .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+      /* Pastikan jadual masih boleh discroll jika content banyak */
+      .table-wrap th, .table-wrap td { white-space: nowrap; font-size: 12px; padding: 8px; }
+    }
+
+    .print-container { display: none; }
+    #receipt{
+      background: white; color: black; font-family: monospace;
+      border-radius: 8px; width: 300px; padding: 10px;
+    }
+    @media print{
+      body{background:white !important}
+      body > *:not(.print-container) { display: none !important; }
+      .print-container {
+        display: block !important;
+        position: absolute; top: 0; left: 0; width: 100%;
+      }
+      #receipt { width: 80mm; padding: 0; margin: 0 auto; border: none; box-shadow: none; border-radius: 0; color: black; }
+    }
+
+    .payment-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+    .chip.danger-chip { background: var(--danger); color: white; border-color: transparent; font-weight: 500; }
+    .nota-remark { margin-bottom: 8px; }
+    .nota-details { display: flex; flex-direction: column; gap: 4px; }
+    .alloc-item { display: flex; align-items: center; gap: 6px; }
+    .alloc-item small { font-weight: 600; color: var(--muted); flex-shrink: 0; }
+    .alloc-item > div { display: flex; flex-wrap: wrap; gap: 4px; }
+    .optional-fields-details {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      transition: all 0.2s ease-in-out;
+      background: transparent;
+    }
+    .optional-fields-details[open] { border-style: solid; background: var(--table); }
+    .optional-fields-details summary {
+      padding: 10px 14px; cursor: pointer; color: var(--accent);
+      font-weight: 500; list-style: none; outline: none;
+    }
+    .optional-fields-details summary::-webkit-details-marker { display: none; }
+    .optional-fields-details > div { padding: 0 14px 14px 14px; }
+  </style>
+</head>
+<body>
+<header class="no-print">
+  <div class="container row" style="align-items:center; justify-content:space-between">
+    <div class="row" style="gap:10px; align-items:center">
+      <h2 style="margin:0">Tanjung Homemade Creative</h2>
+      <span class="pill">Danial Tech</span>
+    </div>
+    <div class="row">
+      <button id="themeBtn" class="secondary" title="Tukar tema">🌓 Tema</button>
+      <button id="toggleAll" class="secondary" title="Show/Hide semua jadual">👁️ Toggle View</button>
+    </div>
+  </div>
+</header>
+
+<main class="container no-print">
+  <div class="summary-bar" id="summaryBar"></div>
+
+  <div class="tabs" style="margin:12px 0">
+    <button class="tab-btn active" data-tab="stok">STOCK</button>
+    <button class="tab-btn" data-tab="jualan">JUALAN</button>
+    <button class="tab-btn" data-tab="admin">ADMIN</button>
+  </div>
+
+  <section id="tab-stok" class="card grid">
+    <div class="card">
+      <h3 style="margin-top:0">Rekod GAS</h3>
+      <div class="grid grid-2">
+        <div><label>Tarikh</label><input type="date" id="stDate"></div>
+        <div><label>Nota (wajib)</label><input id="stNote" placeholder="Bil tong"></div>
+        <div><label>Jumlah 12KG</label><input type="number" id="stQ12" min="0" value="0"></div>
+        <div><label>Harga 12KG (modal/tong)</label><input type="number" id="stC12" min="0" step="0.01" value="0"></div>
+        <div><label>Jumlah 14KG</label><input type="number" id="stQ14" min="0" value="0"></div>
+        <div><label>Harga 14KG (modal/tong)</label><input type="number" id="stC14" min="0" step="0.01" value="0"></div>
+        <div><label>Jumlah INDUSTRIAL</label><input type="number" id="stQI" min="0" value="0"></div>
+        <div><label>Harga INDUSTRIAL (modal/tong)</label><input type="number" id="stCI" min="0" step="0.01" value="0"></div>
+      </div>
+      <div class="divider"></div>
+      <button id="addStock">Add Stok</button>
+      <span class="note">Indicator batch akan berwarna ikut kali tambahan stok.</span>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Rekod Modal Lain</h3>
+      <div class="grid grid-2">
+        <div><label>Tarikh</label><input type="date" id="exDate"></div>
+        <div>
+          <label>Jenis Modal</label>
+          <select id="exType">
+            <option>Minyak Lori</option>
+            <option>Upah Kilang</option>
+            <option>Others</option>
+          </select>
+        </div>
+        <div><label>Jumlah (RM)</label><input type="number" id="exAmt" step="0.01" min="0"></div>
+        <div><label>Nota</label><input id="exNote" placeholder=""></div>
+      </div>
+      <div class="divider"></div>
+      <button id="addExpense">Tambah Modal</button>
+    </div>
+
+    <div class="card">
+      <div class="right no-print">
+        <span class="note">Rekod terbaru auto expand, lama collapse.</span>
+      </div>
+      <h3 style="margin:6px 0">Table Rekod Stok</h3>
+      <div id="stockList" class="grid" style="gap:8px"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:6px 0">Table Rekod Modal Lain</h3>
+      <div id="expList" class="grid" style="gap:8px"></div>
+    </div>
+  </section>
+
+  <section id="tab-jualan" class="card grid hide">
+    <div class="card">
+      <h3 style="margin-top:0">Rekod Jualan</h3>
+      <div class="grid grid-2">
+        <div><label>Tarikh</label><input type="date" id="slDate"></div>
+        <div><label>Client</label>
+          <div class="grid" style="grid-template-columns:1fr auto; gap:8px">
+            <input list="clientList" id="slClient" placeholder="Cari atau pilih client...">
+            <datalist id="clientList"></datalist>
+            <button class="secondary" id="btnRefreshClients" title="Refresh client">↻</button>
+          </div>
+        </div>
+
+        <div><label>Total 14KG</label><input type="number" id="slQ14" min="0" value="0"></div>
+        <div><label>Tong Dibayar 14KG</label><input type="number" id="slPaid14" min="0" value="0"></div>
+
+        <details class="optional-fields-details" style="grid-column: 1 / -1;">
+          <summary>+ Tambah Jualan Tong 12KG / Industri</summary>
+          <div class="grid grid-2" style="padding-top: 12px;">
+            <div><label>Total 12KG</label><input type="number" id="slQ12" min="0" value="0"></div>
+            <div><label>Tong Dibayar 12KG</label><input type="number" id="slPaid12" min="0" value="0"></div>
+            <div><label>Total INDUSTRI</label><input type="number" id="slQI" min="0" value="0"></div>
+            <div><label>Tong Dibayar INDUSTRI</label><input type="number" id="slPaidI" min="0" value="0"></div>
+          </div>
+        </details>
+
+        <div>
+          <label>Jenis Pembayaran</label>
+          <select id="slPayType">
+            <option>Cash</option>
+            <option>Transfer</option>
+            <option>Hutang</option>
+          </select>
+        </div>
+        <div><label>Remark</label><input id="slRemark" placeholder=""></div>
+      </div>
+      <div class="divider"></div>
+      <div id="slCalc" class="note"></div>
+      <div class="divider"></div>
+      <div class="row">
+        <button id="addSale">Tambah Jualan</button>
+        <button id="clearSales" class="danger">Padam Semua Jualan</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Bayar Hutang</h3>
+      <div class="grid grid-2">
+        <div><label>Client (yang ada hutang)</label><input list="debtClientList" id="debtClient" placeholder="Cari client..."><datalist id="debtClientList"></datalist></div>
+        <div><label>Method Pembayaran</label>
+          <select id="debtMethod"><option>Cash</option><option>Transfer</option><option>Other</option></select>
+        </div>
+        <div><label>Tong Bayar Sekarang 12KG</label><input type="number" id="payQ12" min="0" value="0"></div>
+        <div><label>Tong Bayar Sekarang 14KG</label><input type="number" id="payQ14" min="0" value="0"></div>
+        <div><label>Tong Bayar Sekarang INDUSTRI</label><input type="number" id="payQI" min="0" value="0"></div>
+        <div><label>Nota</label><input id="payNote" placeholder=""></div>
+      </div>
+      <div class="divider"></div>
+      <div id="debtInfo" class="note">Pilih client untuk lihat baki hutang (RM & tong).</div>
+      <div class="divider"></div>
+      <button id="btnPayDebt">Bayar Hutang</button>
+      <div class="note" style="margin-top:6px">Semua bayaran hutang direkod dalam Payment History.</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:6px 0">Rekod Jualan</h3>
+      <div id="salesList" class="grid" style="gap:8px"></div>
+    </div>
+  </section>
+
+  <section id="tab-admin" class="card hide">
+    <div id="adminLogin" class="card">
+      <h3 style="margin-top:0">Login Admin</h3>
+      <div class="grid grid-2">
+        <div><label>PIN Admin</label><input id="adminPIN" type="password" placeholder="boss sahaja"></div>
+        <div style="align-self:end"><button id="btnAdminLogin">Masuk</button></div>
+      </div>
+      <div class="note">Default PIN: <b>boss123</b> (ubah di tetapan bawah).</div>
+    </div>
+
+    <div id="adminArea" class="hide">
+      <div class="grid">
+        <div class="card">
+          <h3 style="margin-top:0">Pengurusan Client</h3>
+          <div class="grid grid-2">
+            <div><label>Nama</label><input id="clName"></div>
+            <div><label>Kategori</label><input id="clCat" placeholder="Peruncit / Kedai Makan..."></div>
+            <div><label>Harga 12KG (RM)</label><input type="number" id="clP12" step="0.01" min="0"></div>
+            <div><label>Harga 14KG (RM)</label><input type="number" id="clP14" step="0.01" min="0"></div>
+            <div><label>Harga INDUSTRI (RM)</label><input type="number" id="clPI" step="0.01" min="0"></div>
+          </div>
+          <div class="divider"></div>
+          <button id="addClient">Tambah Client</button>
+          <div class="divider"></div>
+          <details open>
+            <summary>Table Client</summary>
+            <div class="table-wrap">
+              <table id="clientTable"><thead><tr>
+                <th>Nama</th><th>Kategori</th><th>Harga 12KG</th><th>Harga 14KG</th><th>Harga Industri</th><th>Hutang (Tong & RM)</th><th>Last Payment</th><th class="text-right">Aksi</th>
+              </tr></thead><tbody></tbody></table>
+            </div>
+          </details>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Payment History</h3>
+          <div class="right">
+            <button id="clearPayHist" class="danger">Clear Payment History</button>
+          </div>
+          <details open>
+            <summary>Senarai Bayaran Hutang</summary>
+            <div class="table-wrap"><table id="payTable"><thead><tr>
+              <th>Tarikh</th><th>Client</th><th>Tong 12KG</th><th>Tong 14KG</th><th>Tong Industri</th><th>Jumlah (RM)</th><th>Method</th><th>Remark</th><th>Nota</th>
+            </tr></thead><tbody></tbody></table></div>
+          </details>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Rekod Gaji Pekerja</h3>
+          <div class="grid grid-2">
+            <div><label>Tarikh</label><input type="date" id="pgDate"></div>
+            <div><label>Nama Pekerja</label><input id="pgName"></div>
+            <div><label>Jumlah (RM)</label><input type="number" id="pgAmt" step="0.01" min="0"></div>
+            <div><label>Nota</label><input id="pgNote"></div>
+          </div>
+          <div class="divider"></div>
+          <button id="addPayroll">Tambah Gaji</button>
+          <div class="divider"></div>
+          <details open>
+            <summary>Table Gaji</summary>
+            <div class="table-wrap"><table id="payrollTable"><thead><tr>
+              <th>Tarikh</th><th>Nama</th><th>Jumlah</th><th>Nota</th><th class="text-right">Aksi</th>
+            </tr></thead><tbody></tbody></table></div>
+          </details>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Ringkasan & Report</h3>
+          <div class="grid grid-4" id="reportKPI"></div>
+          <div class="divider"></div>
+          <div class="right" style="flex-wrap: wrap; justify-content: flex-start;">
+            <button id="exportSalesCsv">Eksport Jualan (CSV)</button>
+            <button id="exportStocksCsv" class="secondary">Eksport Stok (CSV)</button>
+            <button id="exportExpensesCsv" class="secondary">Eksport Perbelanjaan (CSV)</button>
+          </div>
+          <div class="divider"></div>
+          <details open>
+            <summary>Table Report (Records)</summary>
+            <div class="table-wrap"><table id="reportTable"><thead><tr>
+              <th>Jenis</th><th>Tarikh</th><th>Client/Name</th><th>Tong 12KG</th><th>Tong 14KG</th><th>Tong Industri</th><th>Kos</th><th>Jualan</th><th>Tunai</th><th>Transfer</th><th>Baki Hutang</th><th>Untung Rugi</th>
+            </tr></thead><tbody></tbody></table></div>
+          </details>
+          <div class="divider"></div>
+          <details>
+            <summary>Tetapan Sistem & Data</summary>
+            <div class="grid grid-3">
+              <div><label>PIN Admin</label><input id="setPIN" placeholder="boss123"></div>
+              <div style="align-self:end"><button id="savePIN">Simpan PIN</button></div>
+            </div>
+            <div class="divider"></div>
+            <div>
+              <label style="color: var(--accent); font-weight: bold;">Reset Kiraan "Sold"</label>
+              <p class="note">Hanya reset kiraan pada kad "Sold" di laman utama kepada 0. Data jualan, hutang dan laporan tidak akan dipadam.</p>
+              <button id="resetCounterBtn" class="secondary">Reset Kiraan "Sold" Sahaja</button>
+            </div>
+            <div class="divider"></div>
+            <div>
+              <label style="color: var(--danger); font-weight: bold;">Reset Semua Data Jualan (Awas!)</label>
+              <p class="note">Tindakan ini akan memadam SEMUA rekod jualan, hutang, dan sejarah bayaran secara kekal.</p>
+              <button id="resetAllSalesBtn" class="danger">Padam Semua Data Jualan</button>
+            </div>
+            <div class="divider"></div>
+            <div>
+              <label style="color: red; font-weight: bold; font-size: 14px;">ZON BAHAYA</label>
+              <p class="note">Padam KESELURUHAN data dalam sistem ini (stok, jualan, klien, dll). Tindakan ini MUKTAMAD dan TIDAK BOLEH DIUNDUR.</p>
+              <button id="deleteAllDataBtn" class="danger" style="width: 100%;">PADAM SEMUA DATA SISTEM</button>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="row no-print" style="justify-content:center; margin-top:14px"><span class="note">Made for Donny · Data disimpan dalam LocalStorage · Mobile & Desktop friendly</span></div>
+</main>
+
+<script>
+// ========= Data Model & Helpers =========
+const DB_KEY = 'thc_gas_system_v1';
+const THEME_KEY = 'thc_theme';
+const PIN_KEY = 'thc_admin_pin';
+
+const initDB = () => ({
+  stocks: [],
+  expenses: [],
+  clients: [],
+  sales: [],
+  payments: [],
+  payrolls: [],
+  inventory: { k12: [], k14: [], ki: [] },
+  counters: { 
+    soldAtReset: { k12: 0, k14: 0, ki: 0 }
+  }
+});
+
+let db = load();
+
+function save(){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function load(){
+  let data = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
+  if (data) {
+    const defaultDB = initDB();
+    if (!data.counters) data.counters = defaultDB.counters;
+    if (data.counters.salesResetDate) {
+      delete data.counters.salesResetDate;
+      data.counters.soldAtReset = defaultDB.counters.soldAtReset;
+    }
+    if (!data.counters.soldAtReset) {
+      data.counters.soldAtReset = defaultDB.counters.soldAtReset;
+    }
+    for (const key in defaultDB) {
+      if (!data.hasOwnProperty(key)) data[key] = defaultDB[key];
+    }
+    return data;
+  }
+  return initDB();
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function fmt(n){ return Number(n||0).toLocaleString('ms-MY',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function today(){ const now = new Date(); return new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 10); }
+function getPIN(){ return localStorage.getItem(PIN_KEY) || 'boss123'; }
+function setPIN(v){ localStorage.setItem(PIN_KEY, v); }
+
+// Theme
+(function(){ const t = localStorage.getItem(THEME_KEY)||'dark'; document.documentElement.setAttribute('data-theme', t); document.getElementById('themeBtn').onclick=()=>{
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', next); localStorage.setItem(THEME_KEY, next);
+};})();
+
+// Toggle view — expand/collapse all details & keep viewport within bounds
+let toggled = false;
+const bodyEl = document.body;
+
+document.getElementById('toggleAll').onclick = () => {
+  toggled = !toggled;
+
+  document.querySelectorAll('details:not(.optional-fields-details)').forEach(el => {
+    if (toggled) {
+      el.removeAttribute('open'); // Hide mode
+    } else {
+      el.setAttribute('open', ''); // Unhide mode
+    }
+  });
+
+  if (!toggled) {
+    bodyEl.classList.add('toggle-expanded');
+    // Ensure viewport resets top-left (avoid pulling to the right on Android)
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  } else {
+    bodyEl.classList.remove('toggle-expanded');
+    window.scrollTo({ top: 0, left: 0 });
+  }
+};
+
+// ========= Inventory & Metrics =========
+function pushInventory(type, qty, cost, batch){ if(qty<=0) return; db.inventory[type].push({batch, remain:qty, cost}); }
+function popInventory(type, qty){
+  const arr = db.inventory[type]; const out=[]; let need=qty;
+  while(need>0 && arr.length){ const node = arr[0]; const take = Math.min(node.remain, need); if(take>0){ out.push({batch:node.batch, qty:take, cost:node.cost}); node.remain -= take; need -= take; } if(node.remain===0) arr.shift(); }
+  return {alloc:out, leftover:need};
+}
+
+function currentBalance(type){
+  const key = `q${type.replace('k','')}`;
+  const totalIn = db.stocks.reduce((s, st) => s + (st[key] || 0), 0);
+  const totalSold = db.sales.reduce((s, sl) => s + (sl[key] || 0), 0);
+  return totalIn - totalSold;
+}
+
+function totalIn(type) {
+  const key = `q${type.replace('k', '')}`;
+  return db.stocks.reduce((sum, stock) => sum + (stock[key] || 0), 0);
+}
+
+function totalSold(type) {
+  const key = `q${type.replace('k', '')}`;
+  return db.sales.reduce((sum, sale) => sum + Number(sale[key] || 0), 0);
+}
+
+function computeClientDebt(clientId){
+  let debtTanks = { d12: 0, d14: 0, di: 0 };
+  db.sales.filter(s => s.clientId === clientId).forEach(s => {
+    debtTanks.d12 += s.q12 - s.paid12;
+    debtTanks.d14 += s.q14 - s.paid14;
+    debtTanks.di += s.qi - s.paidI;
+  });
+
+  const clientPayments = db.payments.filter(p => p.clientId === clientId && p.remark === 'Bayar hutang');
+  const totalPaidViaDebtSystem = clientPayments.reduce((sum, p) => sum + p.amount, 0);
+  const totalSaleValue = db.sales.filter(s => s.clientId === clientId)
+      .reduce((sum, s) => sum + (s.q12*s.price12 + s.q14*s.price14 + s.qi*s.priceI), 0);
+  const totalPaidAtSale = db.sales
+      .filter(s => s.clientId === clientId)
+      .reduce((sum, s) => sum + (s.paid12*s.price12 + s.paid14*s.price14 + s.paidI*s.priceI), 0);
+
+  const totalDebtRM = totalSaleValue - totalPaidAtSale - totalPaidViaDebtSystem;
+
+  return {rm: Math.max(0, totalDebtRM), d12: Math.max(0, debtTanks.d12), d14: Math.max(0, debtTanks.d14), di: Math.max(0, debtTanks.di)};
+}
+
+function recomputeSummary() {
+  const latestStock = db.stocks[db.stocks.length - 1] || { q12: 0, q14: 0, qi: 0 };
+  const totalSold12 = Number(totalSold('k12'));
+  const totalSold14 = Number(totalSold('k14'));
+  const totalSoldI = Number(totalSold('ki'));
+
+  const resetVal12 = Number(db.counters.soldAtReset.k12 || 0);
+  const resetVal14 = Number(db.counters.soldAtReset.k14 || 0);
+  const resetValI = Number(db.counters.soldAtReset.ki || 0);
+
+  const soldSinceReset12 = totalSold12 - resetVal12;
+  const soldSinceReset14 = totalSold14 - resetVal14;
+  const soldSinceResetI = totalSoldI - resetValI;
+
+  const kp = [
+    { k: 'Stock 12KG (latest)', v: latestStock.q12 },
+    { k: 'Stock 14KG (latest)', v: latestStock.q14 },
+    { k: 'Stock Industri (latest)', v: latestStock.qi },
+    { k: 'Baki Isi 12KG', v: currentBalance('k12') },
+    { k: 'Baki Isi 14KG', v: currentBalance('k14') },
+    { k: 'Baki Isi Industri', v: currentBalance('ki') },
+    { k: 'Sold 12KG', v: soldSinceReset12 },
+    { k: 'Sold 14KG', v: soldSinceReset14 },
+    { k: 'Sold Industri', v: soldSinceResetI },
+  ];
+
+  const host = document.getElementById('summaryBar');
+  host.innerHTML = kp.map(x => `
+    <div class="kpi">
+      <h4>${x.k}</h4>
+      <div class="v">${(x.v || 0).toLocaleString()}</div>
+    </div>
+  `).join('');
+}
+
+// ========= Rendering =========
+function renderStocks(){
+  const host = document.getElementById('stockList');
+  host.innerHTML = '';
+  const items = [...db.stocks].sort((a,b)=> b.date.localeCompare(a.date) || (b.batch || 0) - (a.batch || 0));
+  items.forEach((st,idx)=>{
+    const totalCost = st.q12*st.c12 + st.q14*st.c14 + st.qi*st.ci;
+    const color = `b${((st.batch || 0)%6)||6}`;
+    const open = idx===0? 'open' : '';
+    host.insertAdjacentHTML('beforeend', `
+      <details ${open} data-id="${st.id}">
+        <summary class="row" style="justify-content:space-between; align-items:center;">
+          <div>
+            <span class="chip ${color}">Batch #${st.batch}</span>
+            <b style="margin-left:6px">${st.date}</b> · Nota: ${st.note} · Total kos RM ${fmt(totalCost)}
+          </div>
+          <button class="ghost danger no-print" onclick="delStock('${st.id}')">Padam</button>
+        </summary>
+        <div class="table-wrap"><table><thead><tr>
+          <th>Jenis</th><th>Jumlah</th><th>Harga Modal / Tong</th><th>Jumlah Modal</th>
+        </tr></thead><tbody>
+          ${st.q12>0?`<tr><td>12KG</td><td>${st.q12}</td><td>RM ${fmt(st.c12)}</td><td>RM ${fmt(st.q12*st.c12)}</td></tr>`:''}
+          ${st.q14>0?`<tr><td>14KG</td><td>${st.q14}</td><td>RM ${fmt(st.c14)}</td><td>RM ${fmt(st.q14*st.c14)}</td></tr>`:''}
+          ${st.qi>0?`<tr><td>Industri</td><td>${st.qi}</td><td>RM ${fmt(st.ci)}</td><td>RM ${fmt(st.qi*st.ci)}</td></tr>`:''}
+        </tbody></table></div>
+      </details>
+    `);
+  });
+}
+
+function renderExpenses(){
+  const host = document.getElementById('expList');
+  host.innerHTML = '';
+  const items = [...db.expenses].sort((a,b)=> b.date.localeCompare(a.date));
+  items.forEach((ex,idx)=>{
+    const open = idx===0? 'open' : '';
+    host.insertAdjacentHTML('beforeend', `
+      <details ${open} data-id="${ex.id}">
+        <summary class="row" style="justify-content:space-between; align-items:center;">
+          <b>${ex.date}</b> · ${ex.type} · RM ${fmt(ex.amount)}
+          <button class="ghost danger no-print" onclick="delExpense('${ex.id}')">Padam</button>
+        </summary>
+        <div style="padding:10px">Nota: ${ex.note || '-'}</div>
+      </details>
+    `);
+  });
+}
+
+function renderClients(){
+  const tb = document.querySelector('#clientTable tbody');
+  tb.innerHTML='';
+  const head = document.querySelector('#clientTable thead tr');
+  if (head) {
+      head.innerHTML = `<th>Nama</th><th>Kategori</th><th>Harga 12KG</th><th>Harga 14KG</th><th>Harga Industri</th><th>Hutang (Tong & RM)</th><th>Last Payment</th><th class="text-right">Aksi</th>`;
+  }
+  
+  const items = [...db.clients].sort((a,b)=> a.name.localeCompare(b.name));
+  items.forEach(c=>{
+    const d = computeClientDebt(c.id);
+    tb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${c.name}</td><td>${c.cat||'-'}</td><td>RM ${fmt(c.p12)}</td><td>RM ${fmt(c.p14)}</td><td>RM ${fmt(c.pi)}</td>
+        <td>${d.d12}/${d.d14}/${d.di} tong · RM ${fmt(d.rm)}</td>
+        <td>${c.lastPayment||'-'}</td>
+        <td class="text-right"><button class="ghost danger" onclick="delClient('${c.id}')">Padam</button></td>
+      </tr>
+    `);
+  });
+  const dl = document.getElementById('clientList');
+  dl.innerHTML = items.map(c=>`<option value="${c.name}"></option>`).join('');
+  const dl2 = document.getElementById('debtClientList');
+  const debtClients = items.filter(c => computeClientDebt(c.id).rm > 0);
+  dl2.innerHTML = debtClients.map(c=>`<option value="${c.name}"></option>`).join('');
+}
+
+function findClientByName(name){ return db.clients.find(c=>c.name.toLowerCase() === (name||'').toLowerCase()); }
+
+function renderSales(){
+  const host = document.getElementById('salesList');
+  host.innerHTML = '';
+  const grouped = {};
+  db.sales.forEach(s=>{ (grouped[s.date] ||= []).push(s); });
+  const dates = Object.keys(grouped).sort().reverse();
+  dates.forEach((d,idx)=>{
+    const open = idx===0? 'open':'';
+    const rows = grouped[d].map(s=>{
+      const client = db.clients.find(c=>c.id===s.clientId);
+      const nm = client?client.name:'(deleted)';
+      const totalSales = s.q12*s.price12 + s.q14*s.price14 + s.qi*s.priceI;
+      const debtRM = Math.max(0, totalSales - (s.paid12*s.price12 + s.paid14*s.price14 + s.paidI*s.priceI));
+      
+      const batchChips = (type)=>{
+        const arr = (s.allocations||{})[type]||[];
+        if (arr.length === 0) return '<span>-</span>';
+        return arr.map(a=>`<span class="chip b${((a.batch||0)%6)||6}">${a.qty} @ B#${a.batch}</span>`).join(' ');
+      }
+
+      return `
+        <tr>
+          <td>${nm}</td>
+          <td>${s.q12 > 0 ? `${s.q12} @ RM${fmt(s.price12)}` : '-'}</td>
+          <td>${s.q14 > 0 ? `${s.q14} @ RM${fmt(s.price14)}` : '-'}</td>
+          <td>${s.qi > 0 ? `${s.qi} @ RM${fmt(s.priceI)}` : '-'}</td>
+          <td>RM ${fmt(totalSales)}</td>
+          <td>
+            <div class="payment-cell">
+              <span>${s.payType}</span>
+              ${debtRM > 0 ? `<span class="chip danger-chip">Hutang: RM ${fmt(debtRM)}</span>` : ''}
+            </div>
+          </td>
+          <td>
+            <div class="nota-remark">${s.remark || '-'}</div>
+            <div class="nota-details">
+              <div class="alloc-item">
+                <small>12KG:</small> <div>${batchChips('k12')}</div>
+              </div>
+              <div class="alloc-item">
+                <small>14KG:</small> <div>${batchChips('k14')}</div>
+              </div>
+              <div class="alloc-item">
+                <small>IND:</small> <div>${batchChips('ki')}</div>
+              </div>
+            </div>
+          </td>
+          <td class="text-right">
+            <div class="right">
+              <button class="secondary" onclick="printReceipt('${s.id}')">Resit</button>
+              <button class="ghost danger" onclick="delSale('${s.id}')">Padam</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    host.insertAdjacentHTML('beforeend', `
+      <details ${open}>
+        <summary>${d}</summary>
+        <div class="table-wrap"><table><thead><tr>
+          <th>Client</th><th>12KG</th><th>14KG</th><th>Industri</th><th>Total Jualan</th><th>Bayaran</th><th>Nota</th><th class="text-right">Aksi</th>
+        </tr></thead><tbody>${rows}</tbody></table></div>
+      </details>
+    `);
+  });
+}
+
+function renderPayments(){
+  const tb = document.querySelector('#payTable tbody');
+  tb.innerHTML='';
+  const items = [...db.payments].sort((a,b)=> b.date.localeCompare(a.date));
+  items.forEach(p=>{
+    tb.insertAdjacentHTML('beforeend', `<tr>
+      <td>${p.date}</td><td>${(db.clients.find(c=>c.id===p.clientId)||{}).name||'(deleted)'}</td>
+      <td>${p.q12}</td><td>${p.q14}</td><td>${p.qi}</td>
+      <td>RM ${fmt(p.amount)}</td><td>${p.method}</td><td>${p.remark||'-'}</td><td>${p.note||'-'}</td>
+    </tr>`);
+  });
+}
+
+function renderPayroll(){
+  const tb = document.querySelector('#payrollTable tbody');
+  tb.innerHTML='';
+  const head = document.querySelector('#payrollTable thead tr');
+  if(head) {
+      head.innerHTML = `<th>Tarikh</th><th>Nama</th><th>Jumlah</th><th>Nota</th><th class="text-right">Aksi</th>`;
+  }
+
+  const items = [...db.payrolls].sort((a,b)=> b.date.localeCompare(a.date));
+  items.forEach(p=>{
+    tb.insertAdjacentHTML('beforeend', `<tr>
+      <td>${p.date}</td><td>${p.name}</td><td>RM ${fmt(p.amount)}</td><td>${p.note||'-'}</td>
+      <td class="text-right"><button class="ghost danger" onclick="delPayroll('${p.id}')">Padam</button></td>
+    </tr>`);
+  });
+}
+
+function renderReport(){
+  // --- PENGIRAAN DATA KPI ---
+  let totalCostOfGoodsSold = 0;
+  db.sales.forEach(s => {
+    totalCostOfGoodsSold += sumCostAlloc(s.allocations.k12) + sumCostAlloc(s.allocations.k14) + sumCostAlloc(s.allocations.ki);
+  });
+  
+  const totalOtherCost = db.expenses.reduce((s,x)=> s + Number(x.amount||0), 0);
+  const totalPayrollCost = db.payrolls.reduce((s,x)=> s + Number(x.amount||0), 0);
+  const totalSalesRM = db.sales.reduce((s,x)=> s + (x.q12*s.price12 + x.q14*s.price14 + x.qi*s.priceI), 0);
+  
+  const paidDebtCash = db.payments.filter(p=>p.remark === 'Bayar hutang' && p.method === 'Cash').reduce((sum, p) => sum + p.amount, 0);
+  const paidDebtTransfer = db.payments.filter(p=>p.remark === 'Bayar hutang' && p.method === 'Transfer').reduce((sum, p) => sum + p.amount, 0);
+
+  const paidAtSaleCash = db.sales.filter(s=>s.payType === 'Cash').reduce((sum, s) => sum + (s.paid12*s.price12 + s.paid14*s.price14 + s.paidI*s.priceI), 0);
+  const paidAtSaleTransfer = db.sales.filter(s=>s.payType === 'Transfer').reduce((sum, s) => sum + (s.paid12*s.price12 + s.paid14*s.price14 + s.paidI*s.priceI), 0);
+  
+  const totalCashReceived = paidDebtCash + paidAtSaleCash;
+  const totalTransferReceived = paidDebtTransfer + paidAtSaleTransfer;
+  const totalDebtRM = totalSalesRM - totalCashReceived - totalTransferReceived;
+  const grossProfit = totalSalesRM - totalCostOfGoodsSold;
+  const netProfit = grossProfit - totalOtherCost - totalPayrollCost;
+
+  // --- SENARAI KPI UNTUK PAPARAN ---
+  const kpis = [
+      ['Total tong 12KG masuk', totalIn('k12'), false],
+      ['Total tong 14KG masuk', totalIn('k14'), false],
+      ['Total tong Industrial masuk', totalIn('ki'), false],
+      ['Tong 12KG terjual', totalSold('k12'), false],
+      ['Tong 14KG terjual', totalSold('k14'), false],
+      ['Tong Industrial terjual', totalSold('ki'), false],
+      ['Stok baki 12KG', currentBalance('k12'), false],
+      ['Stok baki 14KG', currentBalance('k14'), false],
+      ['Stok baki Industrial', currentBalance('ki'), false],
+      ['Modal gas digunakan', totalCostOfGoodsSold, true],
+      ['Jumlah jualan', totalSalesRM, true],
+      ['Jumlah hutang', totalDebtRM, true],
+      ['Modal lain', totalOtherCost, true],
+      ['Gaji dibayar', totalPayrollCost, true],
+      ['Tunai diterima', totalCashReceived, true],
+      ['Transfer diterima', totalTransferReceived, true],
+      ['Untung kasar', grossProfit, true],
+      ['Untung bersih', netProfit, true],
+  ];
+  
+  // --- RENDER PAPARAN KPI ---
+  document.getElementById('reportKPI').innerHTML = kpis.map(([label, value, isCurrency]) => {
+      const formattedValue = isCurrency ? `RM ${fmt(value)}` : (value || 0).toLocaleString();
+      return `<div class="kpi"><h4>${label}</h4><div class="v">${formattedValue}</div></div>`;
+  }).join('');
+
+  // --- RENDER JADUAL LAPORAN ---
+  const tb = document.querySelector('#reportTable tbody');
+  tb.innerHTML='';
+  const records = [];
+  db.stocks.forEach(s=> records.push({type:`Stok (B#${s.batch})`, date:s.date, name:s.note, q12:s.q12, q14:s.q14, qi:s.qi, cost:s.q12*s.c12+s.q14*s.c14+s.qi*s.ci}));
+  db.expenses.forEach(e=> records.push({type:'Modal Lain', date:e.date, name:e.type, cost:e.amount}));
+  db.payrolls.forEach(p=> records.push({type:'Gaji', date:p.date, name:p.name, cost:p.amount}));
+  db.sales.forEach(s=>{
+    const c = db.clients.find(x=>x.id===s.clientId);
+    const nm = c?c.name:'(deleted)';
+    const totalSales = s.q12*s.price12 + s.q14*s.price14 + s.qi*s.priceI;
+    const paid = s.paid12*s.price12 + s.paid14*s.price14 + s.paidI*s.priceI;
+    const debt = totalSales - paid;
+    const cost = sumCostAlloc(s.allocations.k12) + sumCostAlloc(s.allocations.k14) + sumCostAlloc(s.allocations.ki);
+    const profit = totalSales - cost;
+    records.push({
+        type:'Jualan', date:s.date, name:nm, q12:s.q12, q14:s.q14, qi:s.qi, 
+        cost, sales:totalSales, 
+        cash: s.payType === 'Cash' ? paid : 0, 
+        transfer: s.payType === 'Transfer' ? paid : 0, 
+        debt, profit
+    });
+  });
+
+  records.sort((a,b)=>b.date.localeCompare(a.date)).forEach(r => {
+    tb.insertAdjacentHTML('beforeend', `<tr>
+      <td>${r.type}</td><td>${r.date}</td><td>${r.name||'-'}</td>
+      <td>${r.q12||'-'}</td><td>${r.q14||'-'}</td><td>${r.qi||'-'}</td>
+      <td>${r.cost != null ?`RM ${fmt(r.cost)}`:'-'}</td>
+      <td>${r.sales != null ?`RM ${fmt(r.sales)}`:'-'}</td>
+      <td>${r.cash != null ?`RM ${fmt(r.cash)}`:'-'}</td>
+      <td>${r.transfer != null ?`RM ${fmt(r.transfer)}`:'-'}</td>
+      <td>${r.debt != null ?`RM ${fmt(r.debt)}`:'-'}</td>
+      <td>${r.profit != null ?`RM ${fmt(r.profit)}`:'-'}</td>
+    </tr>`);
+  });
+}
+
+function sumCostAlloc(arr){ return (arr||[]).reduce((s,a)=> s + a.qty*a.cost, 0); }
+
+// ========= Actions =========
+// Tabs
+Array.from(document.querySelectorAll('.tab-btn')).forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  const tab = btn.dataset.tab; document.querySelectorAll('main > section').forEach(s=>s.classList.add('hide'));
+  document.getElementById('tab-'+tab).classList.remove('hide');
+});
+
+// Add Stock
+(function(){
+  document.getElementById('stDate').value = today();
+  document.getElementById('addStock').onclick = ()=>{
+    const date = document.getElementById('stDate').value || today();
+    const note = (document.getElementById('stNote').value||'').trim(); if(!note){ alert('Nota wajib diisi.'); return; }
+    const q12=+document.getElementById('stQ12').value||0, c12=+document.getElementById('stC12').value||0;
+    const q14=+document.getElementById('stQ14').value||0, c14=+document.getElementById('stC14').value||0;
+    const qi=+document.getElementById('stQI').value||0, ci=+document.getElementById('stCI').value||0;
+    if(q12+q14+qi<=0){ alert('Masukkan sekurang-kurangnya 1 tong.'); return; }
+    
+    const maxBatch = db.stocks.reduce((max, stock) => Math.max(max, stock.batch || 0), 0);
+    const batch = maxBatch + 1;
+    const st = {id:uid(), date, note, q12, c12, q14, c14, qi, ci, batch};
+    db.stocks.push(st);
+    rebuildInventory();
+    save();
+    renderAll();
+    ['stNote', 'stQ12','stC12','stQ14','stC14','stQI','stCI'].forEach(id=>document.getElementById(id).value='');
+  }
+})();
+
+function delStock(id){ if(!confirm('Padam rekod stok ini? Ini akan membina semula inventori dan mengubah kiraan keuntungan.')) return;
+  db.stocks = db.stocks.filter(x=>x.id!==id);
+  rebuildInventory(); save(); renderAll(); }
+
+function rebuildInventory(){
+  db.inventory={k12:[],k14:[],ki:[]};
+  [...db.stocks].sort((a,b)=> (a.date.localeCompare(b.date)) || (a.batch - b.batch))
+    .forEach(s=>{
+      pushInventory('k12', s.q12, s.c12, s.batch);
+      pushInventory('k14', s.q14, s.c14, s.batch);
+      pushInventory('ki', s.qi, s.ci, s.batch);
+  });
+  
+  [...db.sales].sort((a,b)=> a.date.localeCompare(b.date) || 0)
+    .forEach(s=>{
+      s.allocations = {};
+      ['k12','k14','ki'].forEach(t=>{
+        const key = `q${t.replace('k','')}`;
+        const need = s[key] || 0;
+        const res = popInventory(t, need);
+        s.allocations[t] = res.alloc;
+      });
+  });
+}
+
+// Expenses
+(function(){
+  document.getElementById('exDate').value = today();
+  document.getElementById('addExpense').onclick = ()=>{
+    const ex = {id:uid(), date: document.getElementById('exDate').value||today(), type: document.getElementById('exType').value, amount:+document.getElementById('exAmt').value||0, note: document.getElementById('exNote').value};
+    if(ex.amount<=0){ alert('Masukkan jumlah (RM).'); return; }
+    db.expenses.push(ex); save(); renderAll();
+    document.getElementById('exAmt').value=''; document.getElementById('exNote').value='';
+  }
+})();
+function delExpense(id){ if(!confirm('Padam rekod modal ini?')) return; db.expenses = db.expenses.filter(x=>x.id!==id); save(); renderAll(); }
+
+// Clients
+(function(){
+  document.getElementById('addClient').onclick=()=>{
+    const name=(document.getElementById('clName').value||'').trim(); if(!name){ alert('Nama client diperlukan'); return; }
+    if(findClientByName(name)){ alert('Client dengan nama ini telah wujud'); return; }
+    const c={id:uid(), name, cat:document.getElementById('clCat').value, p12:+document.getElementById('clP12').value||0, p14:+document.getElementById('clP14').value||0, pi:+document.getElementById('clPI').value||0, lastPayment:''};
+    db.clients.push(c); save(); renderAll();
+    ['clName', 'clCat', 'clP12', 'clP14', 'clPI'].forEach(id => document.getElementById(id).value = '');
+  }
+})();
+function delClient(id){ if(!confirm('Padam client ini? Rekod jualan masih kekal.')) return; db.clients = db.clients.filter(x=>x.id!==id); save(); renderAll(); }
+
+// Sales
+(function(){
+  document.getElementById('slDate').value = today();
+  document.getElementById('btnRefreshClients').onclick=renderClients;
+  ['slQ12','slQ14','slQI','slPaid12','slPaid14','slPaidI','slClient'].forEach(id => document.getElementById(id).addEventListener('input', calcSale));
+
+  document.getElementById('addSale').onclick=()=>{
+    const clientName = (document.getElementById('slClient').value||'').trim(); const c = findClientByName(clientName); if(!c){ alert('Sila pilih client yang wujud.'); return; }
+    const q12=+document.getElementById('slQ12').value||0, q14=+document.getElementById('slQ14').value||0, qi=+document.getElementById('slQI').value||0;
+    const p12=+document.getElementById('slPaid12').value||0, p14=+document.getElementById('slPaid14').value||0, pI=+document.getElementById('slPaidI').value||0;
+    if(q12+q14+qi<=0){ alert('Isi sekurang-kurangnya 1 tong'); return; }
+    if(p12>q12||p14>q14||pI>qi){ alert('Bilangan tong dibayar melebihi total'); return; }
+    
+    if (currentBalance('k12') < q12 || currentBalance('k14') < q14 || currentBalance('ki') < qi) {
+        alert(`Stok tidak mencukupi!\nBaki 12KG: ${currentBalance('k12')}\nBaki 14KG: ${currentBalance('k14')}\nBaki Industri: ${currentBalance('ki')}`);
+        return;
+    }
+
+    const sale = {
+      id:uid(), date: document.getElementById('slDate').value||today(), clientId:c.id,
+      q12, q14, qi, paid12:p12, paid14:p14, paidI:pI, payType: document.getElementById('slPayType').value, remark: document.getElementById('slRemark').value,
+      price12:c.p12, price14:c.p14, priceI:c.pi, allocations: {}
+    };
+    db.sales.push(sale);
+    
+    const totalPaidAmount = p12*c.p12 + p14*c.p14 + pI*c.pi;
+    if (totalPaidAmount > 0) {
+        db.payments.push({ id: uid(), date: sale.date, clientId: c.id, q12: p12, q14: p14, qi: pI, amount: totalPaidAmount, method: sale.payType, remark: 'Bayaran semasa jualan', note: sale.remark });
+        c.lastPayment = sale.date;
+    }
+    
+    rebuildInventory();
+    save();
+    renderAll();
+    ['slClient','slQ12','slQ14','slQI','slPaid12','slPaid14','slPaidI', 'slRemark'].forEach(id=>document.getElementById(id).value='');
+    ['slQ12','slQ14','slQI','slPaid12','slPaid14','slPaidI'].forEach(id=>document.getElementById(id).value='0');
+
+  };
+  document.getElementById('clearSales').onclick=()=>{ if(!confirm('Padam semua jualan, hutang dan bayaran? Operasi ini tidak boleh diundur!')) return; db.sales=[]; db.payments=[]; rebuildInventory(); save(); renderAll(); };
+})();
+
+function calcSale(){
+  const client = findClientByName(document.getElementById('slClient').value);
+  const p12 = client?client.p12:0, p14=client?client.p14:0, pI=client?client.pi:0;
+  const q12=+document.getElementById('slQ12').value||0, q14=+document.getElementById('slQ14').value||0, qi=+document.getElementById('slQI').value||0;
+  const paid12=+document.getElementById('slPaid12').value||0, paid14=+document.getElementById('slPaid14').value||0, paidI=+document.getElementById('slPaidI').value||0;
+  const totalSale=q12*p12 + q14*p14 + qi*pI;
+  const paidRM=paid12*p12 + paid14*p14 + paidI*pI;
+  const debtRM = totalSale - paidRM;
+  document.getElementById('slCalc').innerHTML = `Harga/Tong (auto): 12KG RM <b>${fmt(p12)}</b> · 14KG RM <b>${fmt(p14)}</b> · INDUSTRI RM <b>${fmt(pI)}</b><br>
+  Jumlah Jualan: <b>RM ${fmt(totalSale)}</b> · Jumlah Dibayar: <b>RM ${fmt(paidRM)}</b> · Baki Hutang: <b>RM ${fmt(debtRM)}</b>`;
+}
+
+function delSale(id){ if(!confirm('Padam jualan ini? Stok akan dipulangkan.')) return;
+  db.sales = db.sales.filter(s=>s.id!==id);
+  rebuildInventory(); save(); renderAll(); }
+
+// Debt Payment
+(function(){
+  document.getElementById('debtClient').addEventListener('input', ()=>{
+    const c = findClientByName(document.getElementById('debtClient').value); if(!c){ document.getElementById('debtInfo').innerText='Client tidak ditemui.'; return; }
+    const d = computeClientDebt(c.id); document.getElementById('debtInfo').innerHTML = `Baki hutang — RM <b>${fmt(d.rm)}</b> · Tong (12/14/I): <b>${d.d12}</b>/<b>${d.d14}</b>/<b>${d.di}</b>`;
+  });
+  document.getElementById('btnPayDebt').onclick=()=>{
+    const c = findClientByName(document.getElementById('debtClient').value); if(!c){ alert('Pilih client sah.'); return; }
+    const q12=+document.getElementById('payQ12').value||0, q14=+document.getElementById('payQ14').value||0, qi=+document.getElementById('payQI').value||0;
+    const amount = (q12 * c.p12) + (q14 * c.p14) + (qi * c.pi);
+    if(amount <= 0 && q12+q14+qi > 0) { alert("Harga untuk pelanggan ini belum ditetapkan. Sila tetapkan harga di tab Admin."); return; }
+    if(q12+q14+qi <= 0) { alert("Sila masukkan jumlah tong yang dibayar."); return; }
+    
+    const rec = {id:uid(), date: today(), clientId:c.id, q12, q14, qi, amount:amount, method:document.getElementById('debtMethod').value, remark:'Bayar hutang', note:document.getElementById('payNote').value};
+    db.payments.push(rec); c.lastPayment = rec.date;
+    
+    save(); renderAll();
+    document.getElementById('debtInfo').innerHTML = 'Bayaran direkod.';
+    ['payQ12','payQ14','payQI','payNote', 'debtClient'].forEach(id => document.getElementById(id).value = '');
+  }
+})();
+
+function delPayroll(id){ if(!confirm('Padam rekod gaji?')) return; db.payrolls = db.payrolls.filter(x=>x.id!==id); save(); renderAll(); }
+
+// Payroll add
+(function(){
+  document.getElementById('pgDate').value = today();
+  document.getElementById('addPayroll').onclick=()=>{
+    const p={id:uid(), date: document.getElementById('pgDate').value||today(), name: document.getElementById('pgName').value||'(tanpa nama)', amount:+document.getElementById('pgAmt').value||0, note: document.getElementById('pgNote').value};
+    if(p.amount<=0){ alert('Isi jumlah gaji.'); return; }
+    db.payrolls.push(p); save(); renderAll();
+    ['pgName', 'pgAmt', 'pgNote'].forEach(id => document.getElementById(id).value = '');
+  }
+})();
+
+// Admin
+(function(){
+  document.getElementById('btnAdminLogin').onclick=()=>{
+    if(document.getElementById('adminPIN').value === getPIN()){ document.getElementById('adminLogin').classList.add('hide'); document.getElementById('adminArea').classList.remove('hide'); }
+    else alert('PIN salah');
+  };
+  document.getElementById('savePIN').onclick=()=>{ const v=(document.getElementById('setPIN').value||'').trim(); if(v) { setPIN(v); alert('PIN dikemas kini'); } else { alert('PIN tidak boleh kosong.'); }};
+  document.getElementById('clearPayHist').onclick=()=>{ if(!confirm('Kosongkan Payment History? Ini tidak akan mengubah status hutang pelanggan.')) return; db.payments=[]; save(); renderPayments(); };
+  
+  document.getElementById('resetCounterBtn').onclick = () => {
+    if (confirm('Anda pasti untuk reset kiraan "Sold" di laman utama kepada 0?\n\nData jualan anda TIDAK akan dipadam.')) {
+      db.counters.soldAtReset.k12 = totalSold('k12');
+      db.counters.soldAtReset.k14 = totalSold('k14');
+      db.counters.soldAtReset.ki = totalSold('ki');
+      save();
+      renderAll();
+      alert('Kiraan "Sold" telah direset kepada 0.');
+    }
+  };
+
+  document.getElementById('resetAllSalesBtn').onclick = () => {
+    const confirmation = prompt('AWAS! Anda akan MEMADAM SEMUA DATA JUALAN secara kekal. Untuk meneruskan, taip "PADAM" dalam kotak di bawah dan tekan OK.');
+    if (confirmation === 'PADAM') {
+      db.sales = [];
+      db.payments = [];
+      db.counters.soldAtReset = { k12: 0, k14: 0, ki: 0 };
+      rebuildInventory();
+      save();
+      renderAll();
+      alert('Semua data jualan, hutang, dan bayaran telah berjaya dipadam.');
+    } else {
+      alert('Reset dibatalkan. Tiada data dipadam.');
+    }
+  };
+
+  document.getElementById('deleteAllDataBtn').onclick = () => {
+    const confirm1 = prompt('AMARAN! Anda akan memadam SEMUA data. Taip "DELETE" untuk teruskan.');
+    if (confirm1 !== 'DELETE') {
+      alert('Batal. Tiada data dipadam.');
+      return;
+    }
+    const confirm2 = prompt('PENGESAHAN TERAKHIR! Tindakan ini muktamad. Taip "SAH PADAM" untuk memadam semua data.');
+    if (confirm2 === 'SAH PADAM') {
+      localStorage.removeItem(DB_KEY);
+      alert('Semua data telah berjaya dipadam. Laman akan dimuat semula.');
+      location.reload();
+    } else {
+      alert('Batal. Tiada data dipadam.');
+    }
+  };
+})();
+
+// Export
+function downloadCSV(filename, rows) {
+  const processRow = row => row.map(v => {
+    let value = (v === null || v === undefined) ? '' : String(v);
+    if (/[",\n]/.test(value)) {
+      value = `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  }).join(',');
+  
+  const csvContent = rows.map(processRow).join('\n');
+  const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+document.getElementById('exportSalesCsv').onclick = () => {
+  const rows = [
+    ["Tarikh", "Pelanggan", "Jenis Tong", "Kuantiti", "Harga Jualan (1 Tong)", "Jumlah Jualan (RM)", "Jumlah Kos Modal (RM)", "Keuntungan (RM)"]
+  ];
+
+  db.sales.forEach(s => {
+    const client = db.clients.find(c => c.id === s.clientId) || { name: '(Dipadam)' };
+    
+    if (s.q12 > 0) {
+      const cost12 = sumCostAlloc(s.allocations.k12);
+      const sales12 = s.q12 * s.price12;
+      rows.push([s.date, client.name, "12KG", s.q12, s.price12.toFixed(2), sales12.toFixed(2), cost12.toFixed(2), (sales12 - cost12).toFixed(2)]);
+    }
+    if (s.q14 > 0) {
+      const cost14 = sumCostAlloc(s.allocations.k14);
+      const sales14 = s.q14 * s.price14;
+      rows.push([s.date, client.name, "14KG", s.q14, s.price14.toFixed(2), sales14.toFixed(2), cost14.toFixed(2), (sales14 - cost14).toFixed(2)]);
+    }
+    if (s.qi > 0) {
+      const costI = sumCostAlloc(s.allocations.ki);
+      const salesI = s.qi * s.priceI;
+      rows.push([s.date, client.name, "Industri", s.qi, s.priceI.toFixed(2), salesI.toFixed(2), costI.toFixed(2), (salesI - costI).toFixed(2)]);
+    }
+  });
+
+  downloadCSV(`Laporan_Jualan_${today()}.csv`, rows);
+};
+
+document.getElementById('exportStocksCsv').onclick = () => {
+  const rows = [
+    ["Tarikh", "Batch", "Nota", "Jenis Tong", "Kuantiti Masuk", "Kos Seunit (RM)", "Jumlah Kos (RM)"]
+  ];
+
+  db.stocks.forEach(s => {
+    if (s.q12 > 0) rows.push([s.date, `Batch #${s.batch}`, s.note, "12KG", s.q12, s.c12.toFixed(2), (s.q12 * s.c12).toFixed(2)]);
+    if (s.q14 > 0) rows.push([s.date, `Batch #${s.batch}`, s.note, "14KG", s.q14, s.c14.toFixed(2), (s.q14 * s.c14).toFixed(2)]);
+    if (s.qi > 0) rows.push([s.date, `Batch #${s.batch}`, s.note, "Industri", s.qi, s.ci.toFixed(2), (s.qi * s.ci).toFixed(2)]);
+  });
+
+  downloadCSV(`Laporan_Stok_${today()}.csv`, rows);
+};
+
+document.getElementById('exportExpensesCsv').onclick = () => {
+  const rows = [
+    ["Tarikh", "Jenis Perbelanjaan", "Nama/Nota", "Jumlah (RM)"]
+  ];
+
+  db.expenses.forEach(e => {
+    rows.push([e.date, "Modal Lain", `${e.type} - ${e.note}`, e.amount.toFixed(2)]);
+  });
+  db.payrolls.forEach(p => {
+    rows.push([p.date, "Gaji", `${p.name} - ${p.note}`, p.amount.toFixed(2)]);
+  });
+
+  downloadCSV(`Laporan_Perbelanjaan_${today()}.csv`, rows);
+};
+
+// Receipt printing
+function printReceipt(saleId){
+  const s = db.sales.find(x=>x.id===saleId); if(!s) return;
+  const c = db.clients.find(x=>x.id===s.clientId) || {name:'Unknown'};
+  const total = s.q12*s.price12 + s.q14*s.price14 + s.qi*s.priceI;
+  const paid  = s.paid12*s.price12 + s.paid14*s.price14 + s.paidI*s.priceI;
+  const debt  = total - paid;
+  const invNo = "INV-" + s.id.slice(0,6).toUpperCase();
+
+  const receiptHTML = `
+    <div id="receipt">
+      <div style="text-align:center; font-weight:bold; font-size:16px;">Tanjung Homemade Creative</div>
+      <div style="text-align:center; font-size:10px; line-height:1.2;">
+        lot633 jalan guchil bayam, kg telok<br>
+        baru 15200 kota bharu kelantan<br>
+        Tel: 01161096469<br>
+        No. SSM: 201103252381 (KT0299501-M)
+      </div>
+      <hr style="border-top: 1px dashed black; border-bottom:0;">
+      <div style="font-size:12px;">
+        <div>No.: ${invNo}</div>
+        <div>Date: ${new Date(s.date).toLocaleDateString('ms-MY')} ${new Date().toLocaleTimeString('en-GB')}</div>
+        <div>Customer: ${c.name}</div>
+        <div>Payment: ${s.payType}</div>
+      </div>
+      <hr style="border-top: 1px dashed black; border-bottom:0;">
+      <table style="width:100%; font-size:11px; border-collapse:collapse; text-align:left;">
+        <thead><tr><th style="padding:2px 0;">Item</th><th style="padding:2px 0; text-align:center;">Qty</th><th style="padding:2px 0; text-align:right;">Price</th><th style="padding:2px 0; text-align:right;">Amount</th></tr></thead>
+        <tbody>
+          ${s.q12>0?`<tr><td style="padding:1px 0;">Gas 12KG</td><td style="text-align:center;">${s.q12}</td><td style="text-align:right;">${fmt(s.price12)}</td><td style="text-align:right;">${fmt(s.q12*s.price12)}</td></tr>`:''}
+          ${s.q14>0?`<tr><td style="padding:1px 0;">Gas 14KG</td><td style="text-align:center;">${s.q14}</td><td style="text-align:right;">${fmt(s.price14)}</td><td style="text-align:right;">${fmt(s.q14*s.price14)}</td></tr>`:''}
+          ${s.qi>0?`<tr><td style="padding:1px 0;">Gas IND</td><td style="text-align:center;">${s.qi}</td><td style="text-align:right;">${fmt(s.priceI)}</td><td style="text-align:right;">${fmt(s.qi*s.priceI)}</td></tr>`:''}
+        </tbody>
+      </table>
+      <hr style="border-top: 1px dashed black; border-bottom:0;">
+      <div style="margin-top:6px; font-size:12px; text-align:right;">
+        Total: RM ${fmt(total)}<br>
+        Paid: RM ${fmt(paid)}<br>
+        <b>Balance: RM ${fmt(debt)}</b>
+      </div>
+      <hr style="border-top: 1px dashed black; border-bottom:0;">
+      <div style="text-align:center; font-size:11px; margin-top:6px;">Thank You<br><i>Goods sold are not refundable</i></div>
+    </div>
+  `;
+  const printContainer = document.createElement('div');
+  printContainer.className = 'print-container';
+  printContainer.innerHTML = receiptHTML;
+  document.body.appendChild(printContainer);
+  window.print();
+  document.body.removeChild(printContainer);
+}
+
+function renderAll() {
+  renderStocks();
+  renderExpenses();
+  renderClients();
+  renderSales();
+  renderPayments();
+  renderPayroll();
+  recomputeSummary();
+  renderReport();
+  calcSale();
+}
+
+// ======== Boot ========
+function boot(){
+  rebuildInventory();
+  renderAll();
+}
+boot();
+</script>
+</body>
+</html>
