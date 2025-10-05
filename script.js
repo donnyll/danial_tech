@@ -11,31 +11,33 @@ const today = () => new Date(new Date().getTime() - (new Date().getTimezoneOffse
 const getPIN = () => localStorage.getItem('thc_admin_pin') || 'boss123';
 const setPIN = (v) => localStorage.setItem('thc_admin_pin', v);
 
-// Cache data untuk mengurangkan panggilan ke Supabase
-let ALL_STOCKS = [];
-let ALL_SALES = [];
-let ALL_EXPENSES = [];
-let ALL_PAYROLLS = [];
-let ALL_CLIENTS = [];
-let ALL_PAYMENTS = [];
-let COUNTERS = { soldAtReset: { k12: 0, k14: 0, ki: 0 } }; // Tambah semula
+const COUNTERS_KEY = 'thc_counters';
+const THEME_KEY = 'thc_theme';
+
+// Cache data
+let ALL_STOCKS = [], ALL_SALES = [], ALL_EXPENSES = [], ALL_PAYROLLS = [], ALL_CLIENTS = [], ALL_PAYMENTS = [];
+let COUNTERS = { soldAtReset: { q12: 0, q14: 0, qi: 0 } };
+
+function loadCounters() {
+    const data = JSON.parse(localStorage.getItem(COUNTERS_KEY) || 'null');
+    if (data) COUNTERS = data;
+}
+
+function saveCounters() {
+    localStorage.setItem(COUNTERS_KEY, JSON.stringify(COUNTERS));
+}
+
 
 // ==================
 // FUNGSI UTAMA PAPARAN (RENDERING)
 // ==================
-
 async function renderAll() {
     document.body.style.cursor = 'wait';
     await fetchAllData();
     await Promise.all([
-        renderStocks(),
-        renderExpenses(),
-        renderClients(),
-        renderSales(),
-        renderPayments(),
-        renderPayroll(),
-        recomputeSummary(),
-        renderReport()
+        renderStocks(), renderExpenses(), renderClients(),
+        renderSales(), renderPayments(), renderPayroll(),
+        recomputeSummary(), renderReport()
     ]);
     document.body.style.cursor = 'default';
 }
@@ -47,12 +49,8 @@ async function fetchAllData() {
     const { data: payrolls } = await supabaseClient.from('payrolls').select('*');
     const { data: clients } = await supabaseClient.from('clients').select('*');
     const { data: payments } = await supabaseClient.from('payments').select('*');
-    ALL_STOCKS = stocks || [];
-    ALL_SALES = sales || [];
-    ALL_EXPENSES = expenses || [];
-    ALL_PAYROLLS = payrolls || [];
-    ALL_CLIENTS = clients || [];
-    ALL_PAYMENTS = payments || [];
+    ALL_STOCKS = stocks || []; ALL_SALES = sales || []; ALL_EXPENSES = expenses || [];
+    ALL_PAYROLLS = payrolls || []; ALL_CLIENTS = clients || []; ALL_PAYMENTS = payments || [];
 }
 
 // ==================
@@ -130,6 +128,23 @@ function renderPayroll() {
 // FUNGSI PENGIRAAN (CALCULATIONS)
 // ==================
 
+function computeClientDebt(clientName) { /* ... (kod sama seperti sebelum ini) ... */ }
+function rebuildInventoryAndGetCosts() { /* ... (kod sama seperti sebelum ini) ... */ }
+function recomputeSummary() {
+    const totalIn = (key) => ALL_STOCKS.reduce((sum, s) => sum + (s[key] || 0), 0);
+    const totalSold = (key) => ALL_SALES.reduce((sum, s) => sum + (s[key] || 0), 0);
+    const latestStock = [...ALL_STOCKS].sort((a,b) => new Date(b.date) - new Date(a.date) || b.batch - a.batch)[0] || {q12:0, q14:0, qi:0};
+
+    const kp = [
+        { k: 'Stok Terkini 14KG', v: latestStock.q14 }, { k: 'Stok Terkini 12KG', v: latestStock.q12 }, { k: 'Stok Terkini Industri', v: latestStock.qi },
+        { k: 'Baki 14KG', v: totalIn('q14') - totalSold('q14') }, { k: 'Baki 12KG', v: totalIn('q12') - totalSold('q12') }, { k: 'Baki Industri', v: totalIn('qi') - totalSold('qi') },
+        { k: 'Terjual 14KG', v: totalSold('q14') - (COUNTERS.soldAtReset.q14 || 0) }, { k: 'Terjual 12KG', v: totalSold('q12') - (COUNTERS.soldAtReset.q12 || 0) }, { k: 'Terjual Industri', v: totalSold('qi') - (COUNTERS.soldAtReset.qi || 0) },
+    ];
+    document.getElementById('summaryBar').innerHTML = kp.map(x => `<div class="kpi"><h4>${x.k}</h4><div class="v">${(x.v || 0).toLocaleString()}</div></div>`).join('');
+}
+function renderReport() { /* ... (kod sama seperti sebelum ini) ... */ }
+
+// Kod penuh untuk fungsi-fungsi di atas
 function computeClientDebt(clientName) {
     const clientSales = ALL_SALES.filter(s => s.client_name === clientName);
     const clientPayments = ALL_PAYMENTS.filter(p => p.client_name === clientName);
@@ -139,18 +154,17 @@ function computeClientDebt(clientName) {
 }
 
 function rebuildInventoryAndGetCosts() {
-    let inventory = { k12: [], k14: [], ki: [] };
+    let inventory = { q12: [], q14: [], qi: [] };
     const sortedStocks = [...ALL_STOCKS].sort((a, b) => new Date(a.date) - new Date(b.date) || a.batch - b.batch);
-
     sortedStocks.forEach(s => {
-        if (s.q12 > 0) inventory.k12.push({ batch: s.batch, remain: s.q12, cost: s.c12 });
-        if (s.q14 > 0) inventory.k14.push({ batch: s.batch, remain: s.q14, cost: s.c14 });
-        if (s.qi > 0) inventory.ki.push({ batch: s.batch, remain: s.qi, cost: s.ci });
+        if (s.q12 > 0) inventory.q12.push({ batch: s.batch, remain: s.q12, cost: s.c12 });
+        if (s.q14 > 0) inventory.q14.push({ batch: s.batch, remain: s.q14, cost: s.c14 });
+        if (s.qi > 0) inventory.qi.push({ batch: s.batch, remain: s.qi, cost: s.ci });
     });
 
     const popInventory = (type, qty) => {
         let totalCost = 0; let need = qty;
-        let tempInventory = JSON.parse(JSON.stringify(inventory[type])); // Deep copy
+        let tempInventory = JSON.parse(JSON.stringify(inventory[type]));
         while (need > 0 && tempInventory.length > 0) {
             const node = tempInventory[0];
             const take = Math.min(node.remain, need);
@@ -162,27 +176,12 @@ function rebuildInventoryAndGetCosts() {
 
     let totalCostOfGoodsSold = 0;
     const sortedSales = [...ALL_SALES].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
     sortedSales.forEach(s => {
-        if (s.q12 > 0) totalCostOfGoodsSold += popInventory('k12', s.q12);
-        if (s.q14 > 0) totalCostOfGoodsSold += popInventory('k14', s.q14);
-        if (s.qi > 0) totalCostOfGoodsSold += popInventory('ki', s.qi);
+        if (s.q12 > 0) totalCostOfGoodsSold += popInventory('q12', s.q12);
+        if (s.q14 > 0) totalCostOfGoodsSold += popInventory('q14', s.q14);
+        if (s.qi > 0) totalCostOfGoodsSold += popInventory('qi', s.qi);
     });
-
     return totalCostOfGoodsSold;
-}
-
-function recomputeSummary() {
-    const totalIn = (key) => ALL_STOCKS.reduce((sum, s) => sum + (s[key] || 0), 0);
-    const totalSold = (key) => ALL_SALES.reduce((sum, s) => sum + (s[key] || 0), 0);
-    const latestStock = [...ALL_STOCKS].sort((a,b) => new Date(b.date) - new Date(a.date))[0] || {q12:0, q14:0, qi:0};
-
-    const kp = [
-        { k: 'Stok Terkini 14KG', v: latestStock.q14 }, { k: 'Stok Terkini 12KG', v: latestStock.q12 }, { k: 'Stok Terkini Industri', v: latestStock.qi },
-        { k: 'Baki 14KG', v: totalIn('q14') - totalSold('q14') }, { k: 'Baki 12KG', v: totalIn('q12') - totalSold('q12') }, { k: 'Baki Industri', v: totalIn('qi') - totalSold('qi') },
-        { k: 'Terjual 14KG', v: totalSold('q14') - (COUNTERS.soldAtReset.k14 || 0) }, { k: 'Terjual 12KG', v: totalSold('q12') - (COUNTERS.soldAtReset.k12 || 0) }, { k: 'Terjual Industri', v: totalSold('qi') - (COUNTERS.soldAtReset.ki || 0) },
-    ];
-    document.getElementById('summaryBar').innerHTML = kp.map(x => `<div class="kpi"><h4>${x.k}</h4><div class="v">${(x.v || 0).toLocaleString()}</div></div>`).join('');
 }
 
 function renderReport() {
@@ -204,6 +203,7 @@ function renderReport() {
         return `<div class="kpi" style="background: var(--surface-2);"><h4>${label}</h4><div class="v">${isCurrency ? `RM ${fmt(value)}` : (value || 0).toLocaleString()}</div></div>`;
     }).join('');
 }
+
 
 // ==================
 // FUNGSI AKSI (ACTIONS)
@@ -287,23 +287,15 @@ async function deleteAllData() {
         alert('Operasi dibatalkan.'); return;
     }
     try {
-        await supabaseClient.from('stocks').delete().gt('id', 0);
-        await supabaseClient.from('sales').delete().gt('id', 0);
-        await supabaseClient.from('expenses').delete().gt('id', 0);
-        await supabaseClient.from('payrolls').delete().gt('id', 0);
-        await supabaseClient.from('payments').delete().gt('id', 0);
-        await supabaseClient.from('clients').delete().gt('id', 0);
-        alert('Semua data telah berjaya dipadam dari database.');
-        renderAll();
+        await supabaseClient.from('stocks').delete().gt('id', 0); await supabaseClient.from('sales').delete().gt('id', 0);
+        await supabaseClient.from('expenses').delete().gt('id', 0); await supabaseClient.from('payrolls').delete().gt('id', 0);
+        await supabaseClient.from('payments').delete().gt('id', 0); await supabaseClient.from('clients').delete().gt('id', 0);
+        alert('Semua data telah berjaya dipadam dari database.'); renderAll();
     } catch (error) { alert('Gagal memadam semua data.'); console.error(error); }
 }
 
 function downloadCSV(filename, data, headers) {
-    const processRow = row => headers.map(header => {
-        const value = row[header.toLowerCase().replace(/\s+/g, '_')] || '';
-        const stringValue = String(value).replace(/"/g, '""');
-        return `"${stringValue}"`;
-    }).join(',');
+    const processRow = row => headers.map(header => JSON.stringify(row[header.toLowerCase().replace(/\s+/g, '_')] || '')).join(',');
     const csvContent = [headers.join(','), ...data.map(processRow)].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -316,7 +308,30 @@ function downloadCSV(filename, data, headers) {
 function printReceipt(saleId) {
     const s = ALL_SALES.find(x => x.id === saleId); if (!s) return;
     const total = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
-    const receiptHTML = `<div id="receipt" style="font-size:12px; font-family: monospace; width: 300px; padding: 10px; background: white; color: black;">... (resit HTML anda dari kod asal) ...</div>`; // Ringkaskan untuk jawapan
+    const receiptHTML = `
+    <div id="receipt" style="font-family: monospace; background: white; color: black; width: 300px; padding: 10px;">
+      <div style="text-align:center; font-weight:bold; font-size:16px;">Tanjung Homemade Creative</div>
+      <div style="text-align:center; font-size:10px; line-height:1.2;">lot633 jalan guchil bayam, 15200 kota bharu<br>Tel: 01161096469 | SSM: KT0299501-M</div>
+      <hr style="border:0; border-top: 1px dashed black;">
+      <div style="font-size:12px;">
+        <div>No.: INV-${String(s.id).slice(0, 6).toUpperCase()}</div>
+        <div>Date: ${new Date(s.date).toLocaleDateString('ms-MY')}</div>
+        <div>Customer: ${s.client_name}</div>
+      </div>
+      <hr style="border:0; border-top: 1px dashed black;">
+      <table style="width:100%; font-size:11px; border-collapse:collapse; text-align:left;">
+        <thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style-="text-align:right;">Price</th><th style="text-align:right;">Amount</th></tr></thead>
+        <tbody>
+          ${s.q14 > 0 ? `<tr><td>Gas 14KG</td><td style="text-align:center;">${s.q14}</td><td style="text-align:right;">${fmt(s.price14)}</td><td style="text-align:right;">${fmt(s.q14 * s.price14)}</td></tr>` : ''}
+          ${s.q12 > 0 ? `<tr><td>Gas 12KG</td><td style="text-align:center;">${s.q12}</td><td style="text-align:right;">${fmt(s.price12)}</td><td style="text-align:right;">${fmt(s.q12 * s.price12)}</td></tr>` : ''}
+          ${s.qi > 0 ? `<tr><td>Gas IND</td><td style="text-align:center;">${s.qi}</td><td style="text-align:right;">${fmt(s.priceI)}</td><td style="text-align:right;">${fmt(s.qi * s.priceI)}</td></tr>` : ''}
+        </tbody>
+      </table>
+      <hr style="border:0; border-top: 1px dashed black;">
+      <div style="margin-top:6px; font-size:12px; text-align:right;"><b>Total: RM ${fmt(total)}</b></div>
+      <hr style="border:0; border-top: 1px dashed black;">
+      <div style="text-align:center; font-size:11px; margin-top:6px;">Thank You</div>
+    </div>`;
     const printContainer = document.querySelector('.print-container');
     printContainer.innerHTML = receiptHTML;
     window.print();
@@ -327,7 +342,15 @@ function printReceipt(saleId) {
 // SETUP PERMULAAN (INITIALIZATION)
 // ==================
 function setupUIListeners() {
-    document.querySelectorAll('.nav-btn').forEach(btn => { /* ... (kod navigasi) ... */ });
+    // Navigasi
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(`view-${btn.dataset.view}`).classList.add('active');
+    }));
+
+    // Butang Aksi
     document.getElementById('addStock').addEventListener('click', addStock);
     document.getElementById('addExpense').addEventListener('click', addExpense);
     document.getElementById('addClient').addEventListener('click', addClient);
@@ -335,19 +358,33 @@ function setupUIListeners() {
     document.getElementById('btnRefreshClients').addEventListener('click', renderAll);
     document.getElementById('btnPayDebt').addEventListener('click', addDebtPayment);
     document.getElementById('addPayroll').addEventListener('click', addPayroll);
-    document.getElementById('savePIN').addEventListener('click', () => { /* ... (kod PIN) ... */ });
+    document.getElementById('savePIN').addEventListener('click', () => {
+        const newPin = document.getElementById('setPIN').value;
+        if (newPin) { setPIN(newPin); alert('PIN baru telah disimpan.'); }
+        else { alert('PIN tidak boleh kosong.'); }
+    });
     document.getElementById('deleteAllDataBtn').addEventListener('click', deleteAllData);
+
+    document.getElementById('resetCounterBtn').addEventListener('click', () => {
+        if(confirm('Anda pasti mahu reset kiraan "Terjual" kepada 0?')){
+            COUNTERS.soldAtReset.q12 = ALL_SALES.reduce((sum, s) => sum + (s.q12 || 0), 0);
+            COUNTERS.soldAtReset.q14 = ALL_SALES.reduce((sum, s) => sum + (s.q14 || 0), 0);
+            COUNTERS.soldAtReset.qi = ALL_SALES.reduce((sum, s) => sum + (s.qi || 0), 0);
+            saveCounters();
+            recomputeSummary();
+            alert('Kiraan "Terjual" telah direset.');
+        }
+    });
+
     document.getElementById('resetAllSalesBtn').addEventListener('click', async () => {
-        if(confirm('Anda pasti mahu padam semua Jualan dan Bayaran?')) {
+        if(prompt('AWAS! Ini akan memadam semua Jualan dan Bayaran. Taip "PADAM JUALAN" untuk sahkan.') === 'PADAM JUALAN') {
             await supabaseClient.from('sales').delete().gt('id', 0);
             await supabaseClient.from('payments').delete().gt('id', 0);
             renderAll();
         }
     });
-     document.getElementById('resetCounterBtn').addEventListener('click', () => {
-        alert('Fungsi ini akan ditambah kemudian.');
-    });
-
+    
+    // Butang Eksport
     document.getElementById('exportSalesCsv').addEventListener('click', () => downloadCSV(`Jualan_${today()}.csv`, ALL_SALES, ['date', 'client_name', 'q14', 'q12', 'qi', 'price14', 'price12', 'priceI', 'payType']));
     document.getElementById('exportStocksCsv').addEventListener('click', () => downloadCSV(`Stok_${today()}.csv`, ALL_STOCKS, ['date', 'note', 'batch', 'q14', 'c14', 'q12', 'c12', 'qi', 'ci']));
     document.getElementById('exportExpensesCsv').addEventListener('click', () => {
@@ -355,25 +392,7 @@ function setupUIListeners() {
         downloadCSV(`Perbelanjaan_${today()}.csv`, allExpenses, ['date', 'jenis_rekod', 'name', 'type', 'amount', 'note']);
     });
     
-    document.getElementById('debtClient').addEventListener('input', (e) => { /* ... (kod input hutang) ... */ });
-    ['slClient', 'slQ14', 'slQ12', 'slQI'].forEach(id => { /* ... (kod pengiraan jualan) ... */ });
-    document.getElementById('btnAdminLogin').addEventListener('click', () => { /* ... (kod login admin) ... */ });
-    ['stDate', 'exDate', 'slDate', 'pgDate'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = today(); });
-    
-    const themeBtn = document.getElementById('themeBtn');
-    /* ... (kod tema) ... */
-    
-    // Kod penuh untuk fungsi di atas
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => {
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById(`view-${btn.dataset.view}`).classList.add('active');
-    }));
-    document.getElementById('savePIN').addEventListener('click', () => {
-        const newPin = document.getElementById('setPIN').value;
-        if (newPin) { setPIN(newPin); alert('PIN baru disimpan.'); } else { alert('PIN tidak boleh kosong.'); }
-    });
+    // Input Events
     document.getElementById('debtClient').addEventListener('input', (e) => {
         const clientName = e.target.value;
         const debtInfo = document.getElementById('debtInfo');
@@ -388,15 +407,33 @@ function setupUIListeners() {
         const total = (q14 * client.p14) + (q12 * client.p12) + (qi * client.pi);
         document.getElementById('slCalc').innerHTML = `Anggaran Jualan: <b>RM ${fmt(total)}</b>`;
     }));
+
+    // Admin Login
     document.getElementById('btnAdminLogin').addEventListener('click', () => {
         if (document.getElementById('adminPIN').value === getPIN()) {
             document.getElementById('adminLogin').style.display = 'none';
             document.getElementById('adminArea').style.display = 'block';
         } else { alert('PIN salah'); }
     });
+
+    // Tarikh
+    ['stDate', 'exDate', 'slDate', 'pgDate'].forEach(id => {
+        if(document.getElementById(id)) document.getElementById(id).value = today();
+    });
+    
+    // Tema
+    const themeBtn = document.getElementById('themeBtn');
+    const currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    themeBtn.onclick = () => {
+        const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem(THEME_KEY, newTheme);
+    };
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    loadCounters();
     setupUIListeners();
     renderAll();
 });
