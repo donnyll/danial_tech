@@ -34,7 +34,6 @@ function saveCounters() {
 async function renderAll() {
     document.body.style.cursor = 'wait';
     await fetchAllData();
-    // Panggil fungsi render secara serentak
     await Promise.all([
         renderStocks(), renderExpenses(), renderClients(),
         renderSales(), renderPayments(), renderPayroll(),
@@ -50,12 +49,8 @@ async function fetchAllData() {
     const { data: payrolls } = await supabaseClient.from('payrolls').select('*');
     const { data: clients } = await supabaseClient.from('clients').select('*');
     const { data: payments } = await supabaseClient.from('payments').select('*');
-    ALL_STOCKS = stocks || [];
-    ALL_SALES = sales || [];
-    ALL_EXPENSES = expenses || [];
-    ALL_PAYROLLS = payrolls || [];
-    ALL_CLIENTS = clients || [];
-    ALL_PAYMENTS = payments || [];
+    ALL_STOCKS = stocks || []; ALL_SALES = sales || []; ALL_EXPENSES = expenses || [];
+    ALL_PAYROLLS = payrolls || []; ALL_CLIENTS = clients || []; ALL_PAYMENTS = payments || [];
 }
 
 // ==================
@@ -104,7 +99,7 @@ function renderSales() {
     if (sorted.length === 0) { host.innerHTML = `<p class="note">Tiada rekod jualan.</p>`; return; }
     sorted.forEach((s, idx) => {
         const totalSales = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
-        const totalPaid = (s.paid12 * s.price12) + (s.paid14 * s.price14) + (s.paidI * s.priceI);
+        const totalPaid = ((s.paid12||0) * s.price12) + ((s.paid14||0) * s.price14) + ((s.paidI||0) * s.priceI);
         const debtRM = totalSales - totalPaid;
         host.innerHTML += `<details data-id="${s.id}" ${idx === 0 ? 'open' : ''}><summary><div><span class="summary-title">${s.client_name} · ${s.date}</span><span class="summary-meta">Jumlah: RM ${fmt(totalSales)} ${debtRM > 0.01 ? `<span class="chip danger-chip" style="margin-left: 5px;">Hutang</span>` : ''}</span></div></summary><div class="details-content">${s.q14 > 0 ? `<div class="details-row"><span class="label">14KG</span><span class="value">${s.q14} (Dibayar: ${s.paid14 || 0}) @ RM ${fmt(s.price14)}</span></div>` : ''}${s.q12 > 0 ? `<div class="details-row"><span class="label">12KG</span><span class="value">${s.q12} (Dibayar: ${s.paid12 || 0}) @ RM ${fmt(s.price12)}</span></div>` : ''}${s.qi > 0 ? `<div class="details-row"><span class="label">Industri</span><span class="value">${s.qi} (Dibayar: ${s.paidI || 0}) @ RM ${fmt(s.priceI)}</span></div>` : ''}<div class="details-row"><span class="label">Bayaran</span><span class="value">${s.payType}</span></div>${debtRM > 0.01 ? `<div class="details-row"><span class="label" style="color:var(--danger)">Baki Hutang Jualan Ini</span><span class="value" style="color:var(--danger)">RM ${fmt(debtRM)}</span></div>`: ''}<div class="divider"></div><div class="record-actions" style="justify-content: flex-end;"><button class="secondary" style="width:auto;" onclick="printReceipt(${s.id})">Resit</button><button class="danger" style="width: auto;" onclick="delSale(${s.id})">Padam</button></div></div></details>`;
     });
@@ -130,9 +125,8 @@ function computeClientDebt(clientName) {
     const clientSales = ALL_SALES.filter(s => s.client_name === clientName);
     const clientPayments = ALL_PAYMENTS.filter(p => p.client_name === clientName);
     const totalSalesValue = clientSales.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0);
-    const totalPaidAtSale = clientSales.reduce((sum, s) => sum + ((s.paid12 || 0) * s.price12) + ((s.paid14 || 0) * s.price14) + ((s.paidI || 0) * s.priceI), 0);
-    const totalDebtPayments = clientPayments.filter(p => p.note !== `Bayaran semasa jualan`).reduce((sum, p) => sum + p.amount, 0);
-    return Math.max(0, totalSalesValue - totalPaidAtSale - totalDebtPayments);
+    const totalPaidValue = clientPayments.reduce((sum, p) => sum + p.amount, 0);
+    return Math.max(0, totalSalesValue - totalPaidValue);
 }
 
 function rebuildInventoryAndGetCosts() {
@@ -144,24 +138,24 @@ function rebuildInventoryAndGetCosts() {
         if (s.qi > 0) inventory.qi.push({ batch: s.batch, remain: s.qi, cost: s.ci });
     });
 
-    const popInventory = (type, qty) => {
+    const popInventory = (type, qty, inv) => {
         let totalCost = 0; let need = qty;
-        let tempInventory = JSON.parse(JSON.stringify(inventory[type]));
-        while (need > 0 && tempInventory.length > 0) {
-            const node = tempInventory[0];
+        while (need > 0 && inv[type].length > 0) {
+            const node = inv[type][0];
             const take = Math.min(node.remain, need);
             if (take > 0) { totalCost += take * node.cost; node.remain -= take; need -= take; }
-            if (node.remain === 0) { tempInventory.shift(); }
+            if (node.remain === 0) { inv[type].shift(); }
         }
         return totalCost;
     };
 
     let totalCostOfGoodsSold = 0;
+    let tempInventory = JSON.parse(JSON.stringify(inventory)); // Deep copy inventory for simulation
     const sortedSales = [...ALL_SALES].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     sortedSales.forEach(s => {
-        if (s.q12 > 0) totalCostOfGoodsSold += popInventory('q12', s.q12);
-        if (s.q14 > 0) totalCostOfGoodsSold += popInventory('q14', s.q14);
-        if (s.qi > 0) totalCostOfGoodsSold += popInventory('qi', s.qi);
+        if (s.q12 > 0) totalCostOfGoodsSold += popInventory('q12', s.q12, tempInventory);
+        if (s.q14 > 0) totalCostOfGoodsSold += popInventory('q14', s.q14, tempInventory);
+        if (s.qi > 0) totalCostOfGoodsSold += popInventory('qi', s.qi, tempInventory);
     });
     return totalCostOfGoodsSold;
 }
@@ -199,8 +193,9 @@ function renderReport() {
     }).join('');
 }
 
+
 // ==================
-// FUNGSI AKSI (ACTIONS)
+// FUNGSI AKSI
 // ==================
 async function addStock() {
     const form = document.getElementById('addStockForm');
@@ -258,7 +253,7 @@ async function addSale() {
 
     const { error } = await supabaseClient.from('sales').insert([newSale]);
     if (error) { alert('Gagal merekod jualan!'); console.error(error); }
-    else { alert('Jualan berjaya direkod!'); form.reset(); form.querySelector('#slDate').value = today(); renderAll(); }
+    else { alert('Jualan berjaya direkod!'); form.reset(); form.querySelector('#slDate').value = today(); calcSale(); renderAll(); }
 }
 async function delSale(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('sales').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
 
@@ -314,9 +309,9 @@ function downloadCSV(filename, data, headers) {
 function printReceipt(saleId) {
     const s = ALL_SALES.find(x => x.id === saleId); if (!s) return;
     const total = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
-    const paid  = (s.paid12 * s.price12) + (s.paid14 * s.price14) + (s.paidI * s.priceI);
+    const paid  = ((s.paid12||0) * s.price12) + ((s.paid14||0) * s.price14) + ((s.paidI||0) * s.priceI);
     const receiptHTML = `
-    <div id="receipt" style="font-family: monospace; background: white; color: black; width: 300px; padding: 10px;">
+    <div id="receipt">
       <div style="text-align:center; font-weight:bold; font-size:16px;">Tanjung Homemade Creative</div>
       <div style="text-align:center; font-size:10px; line-height:1.2;">lot633 jalan guchil bayam, 15200 kota bharu<br>Tel: 01161096469 | SSM: KT0299501-M</div>
       <hr style="border:0; border-top: 1px dashed black;">
