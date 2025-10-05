@@ -394,14 +394,6 @@ function setupUIListeners() {
             document.getElementById('adminArea').style.display = 'block';
         } else { alert('PIN salah'); }
     });
-    const themeBtn = document.getElementById('themeBtn');
-    const currentTheme = localStorage.getItem('thc_theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', currentTheme);
-    themeBtn.onclick = () => {
-        const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('thc_theme', newTheme);
-    };
 }
 
 document.addEventListener('DOMContentLoaded', () => {
