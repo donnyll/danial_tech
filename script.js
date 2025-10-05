@@ -2,12 +2,12 @@
 // SETUP & KONFIGURASI
 // ==================
 
-// GANTIKAN DENGAN URL & KUNCI ANON SUPABASE ANDA!
+// Kunci Supabase anda telah dimasukkan
 const SUPABASE_URL = 'https://dxyvftujqgkjmbqpgyfg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eXZmdHVqcWdram1icXBneWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2Njc3MTUsImV4cCI6MjA3NTI0MzcxNX0.IVXS3hz_iO4S5B5KmQJJEcepzFqtTW-cxbmQmD7aevE';
 
 // Sambungan ke Supabase
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Fungsi pembantu (helpers)
 const fmt = (n) => Number(n || 0).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -32,11 +32,11 @@ async function renderStocks() {
     const host = document.getElementById('stockList');
     host.innerHTML = 'Memuatkan data stok...';
 
-    const { data: stocks, error } = await supabase.from('stocks').select('*').order('date', { ascending: false });
+    const { data: stocks, error } = await supabaseClient.from('stocks').select('*').order('date', { ascending: false });
 
     if (error) {
         host.innerHTML = '<p class="note">Gagal memuatkan data stok.</p>';
-        console.error(error);
+        console.error('Ralat Stok:', error);
         return;
     }
 
@@ -73,11 +73,11 @@ async function renderExpenses() {
     const host = document.getElementById('expList');
     host.innerHTML = 'Memuatkan data modal...';
 
-    const { data: expenses, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
+    const { data: expenses, error } = await supabaseClient.from('expenses').select('*').order('date', { ascending: false });
     
     if (error) {
         host.innerHTML = '<p class="note">Gagal memuatkan data modal.</p>';
-        console.error(error);
+        console.error('Ralat Modal:', error);
         return;
     }
 
@@ -110,9 +110,13 @@ async function renderClients() {
     tb.innerHTML = '';
     dl.innerHTML = '';
 
-    const { data: clients, error } = await supabase.from('clients').select('*').order('name');
+    const { data: clients, error } = await supabaseClient.from('clients').select('*').order('name');
     
-    if (error || !clients) return;
+    if (error) {
+        console.error('Ralat Pelanggan:', error);
+        return;
+    }
+    if (!clients) return;
 
     clients.forEach(c => {
         tb.innerHTML += `
@@ -128,11 +132,11 @@ async function renderSales() {
     const host = document.getElementById('salesList');
     host.innerHTML = 'Memuatkan data jualan...';
 
-    const { data: sales, error } = await supabase.from('sales').select('*').order('date', { ascending: false });
+    const { data: sales, error } = await supabaseClient.from('sales').select('*').order('date', { ascending: false });
 
     if (error) {
         host.innerHTML = '<p class="note">Gagal memuatkan data jualan.</p>';
-        console.error(error);
+        console.error('Ralat Jualan:', error);
         return;
     }
 
@@ -185,7 +189,7 @@ async function addStock() {
 
     if (!newStock.note) { alert('Nota wajib diisi.'); return; }
     
-    const { error } = await supabase.from('stocks').insert([newStock]);
+    const { error } = await supabaseClient.from('stocks').insert([newStock]);
     if (error) {
         alert('Gagal menambah stok!');
         console.error(error);
@@ -199,7 +203,7 @@ async function addStock() {
 
 async function delStock(id) {
     if (!confirm('Anda pasti mahu padam rekod stok ini?')) return;
-    const { error } = await supabase.from('stocks').delete().eq('id', id);
+    const { error } = await supabaseClient.from('stocks').delete().eq('id', id);
     if (error) alert('Gagal memadam stok.');
     else renderStocks();
 }
@@ -214,7 +218,7 @@ async function addExpense() {
 
     if (newExpense.amount <= 0) { alert('Sila masukkan jumlah.'); return; }
 
-    const { error } = await supabase.from('expenses').insert([newExpense]);
+    const { error } = await supabaseClient.from('expenses').insert([newExpense]);
     if (error) {
         alert('Gagal menambah modal!');
         console.error(error);
@@ -228,7 +232,7 @@ async function addExpense() {
 
 async function delExpense(id) {
     if (!confirm('Anda pasti mahu padam rekod modal ini?')) return;
-    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    const { error } = await supabaseClient.from('expenses').delete().eq('id', id);
     if (error) alert('Gagal memadam modal.');
     else renderExpenses();
 }
@@ -244,7 +248,7 @@ async function addClient() {
     
     if (!newClient.name) { alert('Nama pelanggan wajib diisi.'); return; }
 
-    const { error } = await supabase.from('clients').insert([newClient]);
+    const { error } = await supabaseClient.from('clients').insert([newClient]);
     if (error) {
         alert('Gagal menambah pelanggan!');
         console.error(error);
@@ -257,7 +261,7 @@ async function addClient() {
 
 async function delClient(id) {
     if (!confirm('Anda pasti mahu padam pelanggan ini? Rekod jualan sedia ada tidak akan terjejas.')) return;
-    const { error } = await supabase.from('clients').delete().eq('id', id);
+    const { error } = await supabaseClient.from('clients').delete().eq('id', id);
     if (error) alert('Gagal memadam pelanggan.');
     else renderClients();
 }
@@ -267,7 +271,7 @@ async function addSale() {
     if (!clientName) { alert('Sila pilih pelanggan.'); return; }
 
     // Dapatkan harga pelanggan dari database
-    const { data: clientData, error: clientError } = await supabase
+    const { data: clientData, error: clientError } = await supabaseClient
         .from('clients')
         .select('p12, p14, pi')
         .eq('name', clientName)
@@ -290,7 +294,7 @@ async function addSale() {
 
     if (newSale.q12 + newSale.q14 + newSale.qi <= 0) { alert('Sila masukkan sekurang-kurangnya satu tong.'); return; }
 
-    const { error } = await supabase.from('sales').insert([newSale]);
+    const { error } = await supabaseClient.from('sales').insert([newSale]);
     if (error) {
         alert('Gagal merekod jualan!');
         console.error(error);
@@ -303,7 +307,7 @@ async function addSale() {
 
 async function delSale(id) {
     if (!confirm('Anda pasti mahu padam rekod jualan ini?')) return;
-    const { error } = await supabase.from('sales').delete().eq('id', id);
+    const { error } = await supabaseClient.from('sales').delete().eq('id', id);
     if (error) alert('Gagal memadam jualan.');
     else renderSales();
 }
@@ -338,6 +342,16 @@ function setupUIListeners() {
     document.getElementById('stDate').value = today();
     document.getElementById('exDate').value = today();
     document.getElementById('slDate').value = today();
+    
+    // Tema
+    const themeBtn = document.getElementById('themeBtn');
+    const currentTheme = localStorage.getItem('thc_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    themeBtn.onclick = () => {
+        const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('thc_theme', newTheme);
+    };
 }
 
 // Fungsi utama yang dipanggil apabila laman dimuatkan
