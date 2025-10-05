@@ -3,8 +3,8 @@
 // ==================
 
 // GANTIKAN DENGAN URL & KUNCI ANON SUPABASE ANDA!
-const SUPABASE_URL = 'URL_PROJEK_ANDA_DI_SINI';
-const SUPABASE_KEY = 'KUNCI_ANON_ANDA_DI_SINI';
+const SUPABASE_URL = 'https://dxyvftujqgkjmbqpgyfg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eXZmdHVqcWdram1icXBneWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2Njc3MTUsImV4cCI6MjA3NTI0MzcxNX0.IVXS3hz_iO4S5B5KmQJJEcepzFqtTW-cxbmQmD7aevE';
 
 // Sambungan ke Supabase
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
