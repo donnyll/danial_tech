@@ -11,7 +11,7 @@
     <header class="app-header">
         <h2>Gas Biz System</h2>
         <button id="themeBtn" class="theme-toggle" title="Tukar tema">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
     </header>
 
@@ -63,11 +63,21 @@
                     </div>
                 </div>
                 <div class="form-group"><label for="slQ14">Total Tong 14KG</label><input type="number" id="slQ14" min="0" value="0"></div>
-                <div class="form-group"><label for="slQ12">Total Tong 12KG</label><input type="number" id="slQ12" min="0" value="0"></div>
-                <div class="form-group"><label for="slQI">Total Tong Industri</label><input type="number" id="slQI" min="0" value="0"></div>
+                <div class="form-group"><label for="slPaid14">Tong Dibayar 14KG</label><input type="number" id="slPaid14" min="0" value="0"></div>
+
+                <details style="margin-bottom: 14px; border: 1px dashed var(--border); border-radius: 8px;">
+                    <summary style="font-size: 0.9rem; color: var(--text-link); cursor: pointer; padding: 10px;">+ Tambah Jualan Tong 12KG / Industri</summary>
+                    <div style="padding: 0 10px 10px 10px; margin-top: 10px;">
+                        <div class="form-group"><label for="slQ12">Total Tong 12KG</label><input type="number" id="slQ12" min="0" value="0"></div>
+                        <div class="form-group"><label for="slPaid12">Tong Dibayar 12KG</label><input type="number" id="slPaid12" min="0" value="0"></div>
+                        <div class="form-group"><label for="slQI">Total Tong Industri</label><input type="number" id="slQI" min="0" value="0"></div>
+                        <div class="form-group"><label for="slPaidI">Tong Dibayar Industri</label><input type="number" id="slPaidI" min="0" value="0"></div>
+                    </div>
+                </details>
+
                 <div class="form-group"><label for="slPayType">Jenis Pembayaran</label><select id="slPayType"><option>Cash</option><option>Transfer</option><option>Hutang</option></select></div>
                 <div class="form-group"><label for="slRemark">Remark</label><input id="slRemark"></div>
-                <div id="slCalc" class="note" style="background: var(--surface-2); padding: 10px; border-radius: 8px; margin-bottom: 16px;">Pilih pelanggan untuk melihat pengiraan.</div>
+                <div id="slCalc" class="note" style="background: var(--surface-2); padding: 10px; border-radius: 8px; margin-bottom: 16px;"></div>
                 <button id="addSale">Tambah Jualan</button>
              </div>
              <div class="card" id="payDebtForm">
@@ -88,8 +98,8 @@
         <section id="view-admin" class="view">
             <div id="adminLogin" class="card">
                 <h3>Log Masuk Admin</h3>
-                <div class="form-group">
-                    <div><label for="adminPIN">PIN Admin</label><input id="adminPIN" type="password" placeholder="****"></div>
+                <div class="form-group" style="display:flex; align-items:flex-end; gap:8px;">
+                    <div style="flex:1;"><label for="adminPIN">PIN Admin</label><input id="adminPIN" type="password" placeholder="****"></div>
                     <button id="btnAdminLogin" style="width: auto; padding: 12px 20px;">Masuk</button>
                 </div>
                 <p class="note">PIN Lalai: <b>boss123</b>.</p>
@@ -160,15 +170,15 @@
 
     <nav class="bottom-nav">
         <button class="nav-btn active" data-view="stok">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9"/><path d="M9 22V12h6v10"/><path d="M2 10.6L12 2l10 8.6"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9"/><path d="M9 22V12h6v10"/><path d="M2 10.6L12 2l10 8.6"/></svg>
             <span>Stok</span>
         </button>
         <button class="nav-btn" data-view="jualan">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
             <span>Jualan</span>
         </button>
         <button class="nav-btn" data-view="admin">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             <span>Admin</span>
         </button>
     </nav>
