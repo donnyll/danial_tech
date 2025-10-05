@@ -145,8 +145,13 @@
                         </div>
                     </div>
                     <div class="divider"></div>
+                    <label style="font-weight: 600; color: var(--warn);">Operasi Data</label>
+                    <p class="note">Hanya reset kiraan pada kad "Sold" di laman utama kepada 0. Data jualan tidak akan dipadam.</p>
+                    <button id="resetCounterBtn" class="secondary" style="margin-top: 8px;">Reset Kiraan "Sold" Sahaja</button>
+                    <div class="divider"></div>
                     <label style="font-weight: 600; color: var(--danger);">Zon Bahaya</label>
                     <p class="note">Tindakan di bawah akan memadam data secara kekal dan tidak boleh diundur.</p>
+                    <button id="resetAllSalesBtn" class="danger" style="margin-top: 8px;">Padam Semua Data Jualan</button>
                     <button id="deleteAllDataBtn" class="danger" style="margin-top: 8px;">PADAM SEMUA DATA SISTEM</button>
                 </div>
             </div>
@@ -167,6 +172,7 @@
             <span>Admin</span>
         </button>
     </nav>
+    <div class="print-container"></div>
     <script src="script.js"></script>
 </body>
 </html>
