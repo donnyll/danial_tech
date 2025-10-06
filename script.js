@@ -229,10 +229,16 @@ async function addClient() {
     form.reset();
 }
 async function delClient(id) {
-    if (confirm('Anda pasti?')) {
+    if (confirm('Anda pasti mahu padam pelanggan ini?')) {
         const { error } = await supabaseClient.from('clients').delete().eq('id', id);
-        if (error) { alert('Gagal padam.'); console.error(error); }
-        else { await renderAll(); }
+        
+        if (error) {
+            alert('Gagal memadam pelanggan.');
+            console.error(error);
+        } else {
+            // Panggil renderAll() untuk muat semula paparan selepas berjaya padam
+            renderAll();
+        }
     }
 }
 async function addSale() {
