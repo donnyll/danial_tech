@@ -84,17 +84,44 @@ tbody tr:last-child td { border-bottom: 0; }
 .nav-btn span { font-size: 0.7rem; font-weight: 500; }
 .view { display: none; }
 .view.active { display: block; }
-.record-list details {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    margin-bottom: 8px; transition: background-color 0.2s;
+.record-list .date-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
 }
-.record-list details[open] { background: var(--surface-2); }
-.record-list summary {
-    display: flex; justify-content: space-between; align-items: center; padding: 12px;
-    cursor: pointer; list-style: none;
+.record-list .date-group-summary {
+    padding: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
 }
-.record-list summary::-webkit-details-marker { display: none; }
-.record-list summary > div:first-child { display: flex; flex-direction: column; gap: 4px; }
+.record-list .date-group-summary::-webkit-details-marker { display: none; }
+.record-list .date-group[open] > .date-group-summary {
+    border-bottom: 1px solid var(--border);
+}
+.record-list .date-group-content {
+    padding: 8px;
+}
+.record-list .record-item {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+.record-list .record-item:last-child {
+    margin-bottom: 0;
+}
+.record-list .record-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    cursor: pointer;
+    list-style: none;
+}
+.record-list .record-summary::-webkit-details-marker { display: none; }
+.record-list .record-summary > div:first-child { display: flex; flex-direction: column; gap: 4px; }
 .record-list .summary-title { font-weight: 600; }
 .record-list .summary-meta { font-size: 0.8rem; color: var(--text-secondary); }
 .record-list .details-content { padding: 0 12px 12px; }
@@ -144,4 +171,8 @@ tbody tr:last-child td { border-bottom: 0; }
 .search-results-item.active {
     background-color: var(--primary);
     color: white;
+}
+body.records-hidden .record-list,
+body.records-hidden .record-title {
+    display: none;
 }

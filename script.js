@@ -52,23 +52,47 @@ async function fetchAllData() {
     ALL_PAYROLLS = payrolls || []; ALL_CLIENTS = clients || []; ALL_PAYMENTS = payments || [];
 }
 
+function renderGrouped(hostId, items, renderItemFn) {
+    const host = document.getElementById(hostId);
+    host.innerHTML = '';
+    if (items.length === 0) {
+        host.innerHTML = `<p class="note">Tiada rekod.</p>`;
+        return;
+    }
+    const groups = {};
+    items.forEach(item => {
+        const date = item.date || new Date(item.created_at).toISOString().slice(0, 10);
+        (groups[date] = groups[date] || []).push(item);
+    });
+
+    const sortedDates = Object.keys(groups).sort((a, b) => new Date(b) - new Date(a));
+
+    sortedDates.forEach((date, dateIdx) => {
+        const itemsHtml = groups[date].map(renderItemFn).join('');
+        host.innerHTML += `<details class="date-group" ${dateIdx === 0 ? 'open' : ''}><summary class="date-group-summary">${date}</summary><div class="date-group-content">${itemsHtml}</div></details>`;
+    });
+}
+
 function renderStocks() {
-    const host = document.getElementById('stockList'); host.innerHTML = '';
-    const sorted = [...ALL_STOCKS].sort((a, b) => new Date(b.date) - new Date(a.date) || b.batch - a.batch);
-    if (sorted.length === 0) { host.innerHTML = `<p class="note">Tiada rekod stok.</p>`; return; }
-    sorted.forEach((st, idx) => {
+    renderGrouped('stockList', ALL_STOCKS, (st) => {
         const totalCost = (st.q12 * st.c12) + (st.q14 * st.c14) + (st.qi * st.ci);
         const color = `b${((st.batch || 0) % 6) || 6}`;
-        host.innerHTML += `<details data-id="${st.id}" ${idx === 0 ? 'open' : ''}><summary><div><span class="summary-title"><span class="chip ${color}">#${st.batch}</span> ${st.date}</span><span class="summary-meta">${st.note} · Kos: RM ${fmt(totalCost)}</span></div><div class="record-actions"><button class="ghost danger" onclick="delStock(${st.id})">Padam</button></div></summary><div class="details-content">${st.q14 > 0 ? `<div class="details-row"><span class="label">14KG</span><span class="value">${st.q14} @ RM ${fmt(st.c14)}</span></div>` : ''}${st.q12 > 0 ? `<div class="details-row"><span class="label">12KG</span><span class="value">${st.q12} @ RM ${fmt(st.c12)}</span></div>` : ''}${st.qi > 0 ? `<div class="details-row"><span class="label">Industri</span><span class="value">${st.qi} @ RM ${fmt(st.ci)}</span></div>` : ''}</div></details>`;
+        return `<details class="record-item" data-id="${st.id}"><summary class="record-summary"><div><span class="summary-title"><span class="chip ${color}">#${st.batch}</span> ${st.note}</span><span class="summary-meta">Kos: RM ${fmt(totalCost)}</span></div><div class="record-actions"><button class="ghost danger" onclick="delStock(${st.id})">Padam</button></div></summary><div class="details-content">${st.q14 > 0 ? `<div class="details-row"><span class="label">14KG</span><span class="value">${st.q14} @ RM ${fmt(st.c14)}</span></div>` : ''}${st.q12 > 0 ? `<div class="details-row"><span class="label">12KG</span><span class="value">${st.q12} @ RM ${fmt(st.c12)}</span></div>` : ''}${st.qi > 0 ? `<div class="details-row"><span class="label">Industri</span><span class="value">${st.qi} @ RM ${fmt(st.ci)}</span></div>` : ''}</div></details>`;
     });
 }
 
 function renderExpenses() {
-    const host = document.getElementById('expList'); host.innerHTML = '';
-    const sorted = [...ALL_EXPENSES].sort((a,b) => new Date(b.date) - new Date(a.date));
-    if (sorted.length === 0) { host.innerHTML = `<p class="note">Tiada rekod modal lain.</p>`; return; }
-    sorted.forEach((ex, idx) => {
-        host.innerHTML += `<details data-id="${ex.id}" ${idx === 0 ? 'open' : ''}><summary><div><span class="summary-title">${ex.date} · ${ex.type}</span><span class="summary-meta">RM ${fmt(ex.amount)}</span></div><div class="record-actions"><button class="ghost danger" onclick="delExpense(${ex.id})">Padam</button></div></summary><div class="details-content"><p class="note">Nota: ${ex.note || '-'}</p></div></details>`;
+    renderGrouped('expList', ALL_EXPENSES, (ex) => {
+        return `<details class="record-item" data-id="${ex.id}"><summary class="record-summary"><div><span class="summary-title">${ex.type}</span><span class="summary-meta">RM ${fmt(ex.amount)}</span></div><div class="record-actions"><button class="ghost danger" onclick="delExpense(${ex.id})">Padam</button></div></summary><div class="details-content"><p class="note">Nota: ${ex.note || '-'}</p></div></details>`;
+    });
+}
+
+function renderSales() {
+    renderGrouped('salesList', ALL_SALES, (s) => {
+        const totalSales = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
+        const totalPaid = ((s.paid12||0) * s.price12) + ((s.paid14||0) * s.price14) + ((s.paidI||0) * s.priceI);
+        const debtRM = totalSales - totalPaid;
+        return `<details class="record-item" data-id="${s.id}"><summary class="record-summary"><div><span class="summary-title">${s.client_name}</span><span class="summary-meta">Jumlah: RM ${fmt(totalSales)} ${debtRM > 0.01 ? `<span class="chip danger-chip" style="margin-left: 5px;">Hutang</span>` : ''}</span></div></summary><div class="details-content">${s.q14 > 0 ? `<div class="details-row"><span class="label">14KG</span><span class="value">${s.q14} (Dibayar: ${s.paid14 || 0}) @ RM ${fmt(s.price14)}</span></div>` : ''}${s.q12 > 0 ? `<div class="details-row"><span class="label">12KG</span><span class="value">${s.q12} (Dibayar: ${s.paid12 || 0}) @ RM ${fmt(s.price12)}</span></div>` : ''}${s.qi > 0 ? `<div class="details-row"><span class="label">Industri</span><span class="value">${s.qi} (Dibayar: ${s.paidI || 0}) @ RM ${fmt(s.priceI)}</span></div>` : ''}<div class="details-row"><span class="label">Bayaran</span><span class="value">${s.payType}</span></div>${debtRM > 0.01 ? `<div class="details-row"><span class="label" style="color:var(--danger)">Baki Hutang Jualan Ini</span><span class="value" style="color:var(--danger)">RM ${fmt(debtRM)}</span></div>`: ''}<div class="divider"></div><div class="record-actions" style="justify-content: flex-end;"><button class="secondary" style="width:auto;" onclick='printReceipt(${s.id})'>Resit</button><button class="danger" style="width: auto;" onclick="delSale(${s.id})">Padam</button></div></div></details>`;
     });
 }
 
@@ -79,18 +103,6 @@ function renderClients() {
         const debt = computeClientDebt(c.name);
         tb.innerHTML += `<tr><td>${c.name}</td><td>${c.cat || '-'}</td><td>${fmt(c.p14)}/${fmt(c.p12)}/${fmt(c.pi)}</td><td>RM ${fmt(debt.rm)}</td><td><button class="ghost danger" onclick="delClient(${c.id})">Padam</button></td></tr>`;
     }
-}
-
-function renderSales() {
-    const host = document.getElementById('salesList'); host.innerHTML = '';
-    const sorted = [...ALL_SALES].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    if (sorted.length === 0) { host.innerHTML = `<p class="note">Tiada rekod jualan.</p>`; return; }
-    sorted.forEach((s, idx) => {
-        const totalSales = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
-        const totalPaid = ((s.paid12||0) * s.price12) + ((s.paid14||0) * s.price14) + ((s.paidI||0) * s.priceI);
-        const debtRM = totalSales - totalPaid;
-        host.innerHTML += `<details data-id="${s.id}" ${idx === 0 ? 'open' : ''}><summary><div><span class="summary-title">${s.client_name} · ${s.date}</span><span class="summary-meta">Jumlah: RM ${fmt(totalSales)} ${debtRM > 0.01 ? `<span class="chip danger-chip" style="margin-left: 5px;">Hutang</span>` : ''}</span></div></summary><div class="details-content">${s.q14 > 0 ? `<div class="details-row"><span class="label">14KG</span><span class="value">${s.q14} (Dibayar: ${s.paid14 || 0}) @ RM ${fmt(s.price14)}</span></div>` : ''}${s.q12 > 0 ? `<div class="details-row"><span class="label">12KG</span><span class="value">${s.q12} (Dibayar: ${s.paid12 || 0}) @ RM ${fmt(s.price12)}</span></div>` : ''}${s.qi > 0 ? `<div class="details-row"><span class="label">Industri</span><span class="value">${s.qi} (Dibayar: ${s.paidI || 0}) @ RM ${fmt(s.priceI)}</span></div>` : ''}<div class="details-row"><span class="label">Bayaran</span><span class="value">${s.payType}</span></div>${debtRM > 0.01 ? `<div class="details-row"><span class="label" style="color:var(--danger)">Baki Hutang Jualan Ini</span><span class="value" style="color:var(--danger)">RM ${fmt(debtRM)}</span></div>`: ''}<div class="divider"></div><div class="record-actions" style="justify-content: flex-end;"><button class="secondary" style="width:auto;" onclick='printReceipt(${s.id})'>Resit</button><button class="danger" style="width: auto;" onclick="delSale(${s.id})">Padam</button></div></div></details>`;
-    });
 }
 
 function renderPayments() {
@@ -114,17 +126,14 @@ function computeClientDebt(clientName) {
     const totalSalesValue = clientSales.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0);
     const totalPaidValue = clientPayments.reduce((sum, p) => sum + p.amount, 0);
     const debtInRM = Math.max(0, totalSalesValue - totalPaidValue);
-
     const sumCylinders = (records, key) => records.reduce((sum, r) => sum + (r[key] || 0), 0);
     
     const totalSold12 = sumCylinders(clientSales, 'q12');
     const totalPaid12 = sumCylinders(clientSales, 'paid12') + sumCylinders(clientPayments, 'q12');
     const debtInQ12 = totalSold12 - totalPaid12;
-
     const totalSold14 = sumCylinders(clientSales, 'q14');
     const totalPaid14 = sumCylinders(clientSales, 'paid14') + sumCylinders(clientPayments, 'q14');
     const debtInQ14 = totalSold14 - totalPaid14;
-
     const totalSoldI = sumCylinders(clientSales, 'qi');
     const totalPaidI = sumCylinders(clientSales, 'paidI') + sumCylinders(clientPayments, 'qi');
     const debtInQI = totalSoldI - totalPaidI;
@@ -177,7 +186,7 @@ function renderReport() {
     const totalCostOfGoodsSold = rebuildInventoryAndGetCosts();
     const totalOtherCost = ALL_EXPENSES.reduce((s, x) => s + Number(x.amount || 0), 0);
     const totalPayrollCost = ALL_PAYROLLS.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const totalSalesRM = ALL_SALES.reduce((s, x) => s + (x.q12 * x.price12) + (x.q14 * x.price14) + (x.qi * x.priceI), 0);
+    const totalSalesRM = ALL_SALES.reduce((s, x) => s + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * x.priceI), 0);
     const totalPaymentsRM = ALL_PAYMENTS.reduce((s, x) => s + Number(x.amount || 0), 0);
     const totalDebtRM = totalSalesRM - totalPaymentsRM;
     const grossProfit = totalSalesRM - totalCostOfGoodsSold;
@@ -200,29 +209,26 @@ async function addStock() {
     const form = document.getElementById('addStockForm');
     const newStock = { date: form.querySelector('#stDate').value || today(), note: form.querySelector('#stNote').value, q14: +form.querySelector('#stQ14').value || 0, c14: +form.querySelector('#stC14').value || 0, q12: +form.querySelector('#stQ12').value || 0, c12: +form.querySelector('#stC12').value || 0, qi: +form.querySelector('#stQI').value || 0, ci: +form.querySelector('#stCI').value || 0, batch: Date.now() };
     if (!newStock.note) { alert('Nota wajib diisi.'); return; }
-    const { error } = await supabaseClient.from('stocks').insert([newStock]);
-    if (error) { alert('Gagal menambah stok!'); console.error(error); } 
-    else { alert('Stok berjaya ditambah!'); form.reset(); form.querySelector('#stDate').value = today(); renderAll(); }
+    await supabaseClient.from('stocks').insert([newStock]);
+    form.reset(); form.querySelector('#stDate').value = today();
 }
-async function delStock(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('stocks').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
+async function delStock(id) { if (confirm('Anda pasti?')) await supabaseClient.from('stocks').delete().eq('id', id); }
 async function addExpense() {
     const form = document.getElementById('addExpenseForm');
     const newExpense = { date: form.querySelector('#exDate').value || today(), type: form.querySelector('#exType').value, amount: +form.querySelector('#exAmt').value || 0, note: form.querySelector('#exNote').value };
     if (newExpense.amount <= 0) { alert('Sila masukkan jumlah.'); return; }
-    const { error } = await supabaseClient.from('expenses').insert([newExpense]);
-    if (error) { alert('Gagal menambah modal!'); console.error(error); }
-    else { alert('Modal berjaya ditambah!'); form.reset(); form.querySelector('#exDate').value = today(); renderAll(); }
+    await supabaseClient.from('expenses').insert([newExpense]);
+    form.reset(); form.querySelector('#exDate').value = today();
 }
-async function delExpense(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('expenses').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
+async function delExpense(id) { if (confirm('Anda pasti?')) await supabaseClient.from('expenses').delete().eq('id', id); }
 async function addClient() {
     const form = document.getElementById('addClientForm');
     const newClient = { name: form.querySelector('#clName').value, cat: form.querySelector('#clCat').value, p14: +form.querySelector('#clP14').value || 0, p12: +form.querySelector('#clP12').value || 0, pi: +form.querySelector('#clPI').value || 0 };
     if (!newClient.name) { alert('Nama pelanggan wajib diisi.'); return; }
-    const { error } = await supabaseClient.from('clients').insert([newClient]);
-    if (error) { alert('Gagal menambah pelanggan!'); console.error(error); }
-    else { alert('Pelanggan berjaya ditambah!'); form.reset(); renderAll(); }
+    await supabaseClient.from('clients').insert([newClient]);
+    form.reset();
 }
-async function delClient(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('clients').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
+async function delClient(id) { if (confirm('Anda pasti?')) await supabaseClient.from('clients').delete().eq('id', id); }
 async function addSale() {
     const form = document.getElementById('addSaleForm');
     const clientName = form.querySelector('#slClient').value;
@@ -243,11 +249,10 @@ async function addSale() {
     if (paidAmount > 0) {
         await supabaseClient.from('payments').insert([{ date: newSale.date, client_name: newSale.client_name, amount: paidAmount, method: newSale.payType, note: `Bayaran semasa jualan. ${newSale.remark}`.trim() }]);
     }
-    const { error } = await supabaseClient.from('sales').insert([newSale]);
-    if (error) { alert('Gagal merekod jualan!'); console.error(error); }
-    else { alert('Jualan berjaya direkod!'); form.reset(); form.querySelector('#slDate').value = today(); calcSale(); renderAll(); }
+    await supabaseClient.from('sales').insert([newSale]);
+    form.reset(); form.querySelector('#slDate').value = today(); calcSale();
 }
-async function delSale(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('sales').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
+async function delSale(id) { if (confirm('Anda pasti?')) await supabaseClient.from('sales').delete().eq('id', id); }
 async function addDebtPayment() {
     const form = document.getElementById('payDebtForm');
     const clientName = form.querySelector('#debtClient').value;
@@ -258,20 +263,17 @@ async function addDebtPayment() {
     const amount = (q14 * clientData.p14) + (q12 * clientData.p12) + (qi * clientData.pi);
     if (amount <= 0) { alert('Sila masukkan sekurang-kurangnya satu tong yang dibayar.'); return; }
     const newPayment = { date: today(), client_name: clientName, q14, q12, qi, amount, method: form.querySelector('#debtMethod').value, note: form.querySelector('#payNote').value };
-    const { error } = await supabaseClient.from('payments').insert([newPayment]);
-    if (error) { alert('Gagal merekod bayaran!'); console.error(error); } 
-    else { alert('Bayaran hutang berjaya direkod!'); form.reset(); document.getElementById('debtInfo').innerHTML = 'Pilih pelanggan untuk lihat baki hutang.'; renderAll(); }
+    await supabaseClient.from('payments').insert([newPayment]);
+    form.reset(); document.getElementById('debtInfo').innerHTML = 'Pilih pelanggan untuk lihat baki hutang.';
 }
 async function addPayroll() {
     const form = document.getElementById('addPayrollForm');
     const newPayroll = { date: form.querySelector('#pgDate').value || today(), name: form.querySelector('#pgName').value, amount: +form.querySelector('#pgAmt').value || 0, note: form.querySelector('#pgNote').value };
-    if(newPayroll.amount <= 0) { alert('Sila masukkan jumlah gaji.'); return; }
-    if(!newPayroll.name) { alert('Sila masukkan nama pekerja.'); return; }
-    const { error } = await supabaseClient.from('payrolls').insert([newPayroll]);
-    if (error) { alert('Gagal menambah rekod gaji!'); console.error(error); }
-    else { alert('Rekod gaji berjaya ditambah!'); form.reset(); form.querySelector('#pgDate').value = today(); renderAll(); }
+    if(newPayroll.amount <= 0 || !newPayroll.name) { alert('Sila isi nama dan jumlah gaji.'); return; }
+    await supabaseClient.from('payrolls').insert([newPayroll]);
+    form.reset(); form.querySelector('#pgDate').value = today();
 }
-async function delPayroll(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('payrolls').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
+async function delPayroll(id) { if (confirm('Anda pasti?')) await supabaseClient.from('payrolls').delete().eq('id', id); }
 async function deleteAllData() {
     if (prompt('AWAS! Ini akan memadam SEMUA data dari database. Taip "PADAM SEMUA" untuk sahkan.') !== 'PADAM SEMUA') {
         alert('Operasi dibatalkan.'); return;
@@ -280,8 +282,8 @@ async function deleteAllData() {
         await supabaseClient.from('stocks').delete().gt('id', -1); await supabaseClient.from('sales').delete().gt('id', -1);
         await supabaseClient.from('expenses').delete().gt('id', -1); await supabaseClient.from('payrolls').delete().gt('id', -1);
         await supabaseClient.from('payments').delete().gt('id', -1); await supabaseClient.from('clients').delete().gt('id', -1);
-        alert('Semua data telah berjaya dipadam dari database.'); renderAll();
-    } catch (error) { alert('Gagal memadam semua data.'); console.error(error); }
+        alert('Semua data telah berjaya dipadam.');
+    } catch (error) { alert('Gagal memadam semua data.'); }
 }
 function downloadCSV(filename, data, headers) {
     const processRow = row => headers.map(header => JSON.stringify(row[header.toLowerCase().replace(/\s+/g, '_')] || '')).join(',');
@@ -321,17 +323,9 @@ function printReceipt(saleId) {
       <hr style="border:0; border-top: 1px dashed black;">
       <div style="text-align:center; font-size:11px; margin-top:6px;">Thank You</div>
     </div>`;
-    
     const printContainer = document.querySelector('.print-container');
     printContainer.innerHTML = receiptHTML;
-
-    // Panggil print() serta-merta
-    window.print();
-
-    // HANYA lengahkan proses membersihkan resit selepas 0.5 saat
-    setTimeout(() => {
-        printContainer.innerHTML = '';
-    }, 500);
+    setTimeout(() => { window.print(); printContainer.innerHTML = ''; }, 100);
 }
 
 // ==================
@@ -377,6 +371,11 @@ function setupUIListeners() {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(`view-${btn.dataset.view}`).classList.add('active');
     }));
+    const toggleBtn = document.getElementById('toggleRecordsBtn');
+    toggleBtn.addEventListener('click', () => {
+        const isHidden = document.body.classList.toggle('records-hidden');
+        toggleBtn.textContent = isHidden ? 'Tunjuk Rekod' : 'Sembunyi Rekod';
+    });
     document.getElementById('addStock').addEventListener('click', addStock);
     document.getElementById('addExpense').addEventListener('click', addExpense);
     document.getElementById('addClient').addEventListener('click', addClient);
@@ -393,7 +392,6 @@ function setupUIListeners() {
         if(prompt('AWAS! Ini akan memadam semua Jualan dan Bayaran. Taip "PADAM JUALAN" untuk sahkan.') === 'PADAM JUALAN') {
             await supabaseClient.from('sales').delete().gt('id', -1);
             await supabaseClient.from('payments').delete().gt('id', -1);
-            renderAll();
         }
     });
      document.getElementById('resetCounterBtn').addEventListener('click', () => {
@@ -489,3 +487,5 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
     listenToDatabaseChanges();
 });
+
+//nak ubah semua form input dari value 0 kepada null. Supaya user senang nak keyin
