@@ -212,7 +212,12 @@ async function addStock() {
     await supabaseClient.from('stocks').insert([newStock]);
     form.reset(); form.querySelector('#stDate').value = today();
 }
-async function delStock(id) { if (confirm('Anda pasti?')) await supabaseClient.from('stocks').delete().eq('id', id); }
+async function delStock(id) {
+    if (confirm('Anda pasti mahu padam rekod stok ini?')) {
+        const { error } = await supabaseClient.from('stocks').delete().eq('id', id);
+        if (error) { alert('Gagal memadam.'); console.error(error); }
+    }
+}
 async function addExpense() {
     const form = document.getElementById('addExpenseForm');
     const newExpense = { date: form.querySelector('#exDate').value || today(), type: form.querySelector('#exType').value, amount: +form.querySelector('#exAmt').value || 0, note: form.querySelector('#exNote').value };
@@ -220,7 +225,12 @@ async function addExpense() {
     await supabaseClient.from('expenses').insert([newExpense]);
     form.reset(); form.querySelector('#exDate').value = today();
 }
-async function delExpense(id) { if (confirm('Anda pasti?')) await supabaseClient.from('expenses').delete().eq('id', id); }
+async function delExpense(id) {
+    if (confirm('Anda pasti mahu padam rekod modal ini?')) {
+        const { error } = await supabaseClient.from('expenses').delete().eq('id', id);
+        if (error) { alert('Gagal memadam.'); console.error(error); }
+    }
+}
 async function addClient() {
     const form = document.getElementById('addClientForm');
     const newClient = { name: form.querySelector('#clName').value, cat: form.querySelector('#clCat').value, p14: +form.querySelector('#clP14').value || 0, p12: +form.querySelector('#clP12').value || 0, pi: +form.querySelector('#clPI').value || 0 };
@@ -231,14 +241,7 @@ async function addClient() {
 async function delClient(id) {
     if (confirm('Anda pasti mahu padam pelanggan ini?')) {
         const { error } = await supabaseClient.from('clients').delete().eq('id', id);
-        
-        if (error) {
-            alert('Gagal memadam pelanggan.');
-            console.error(error);
-        } else {
-            // Panggil renderAll() untuk muat semula paparan selepas berjaya padam
-            renderAll();
-        }
+        if (error) { alert('Gagal memadam.'); console.error(error); }
     }
 }
 async function addSale() {
@@ -264,7 +267,12 @@ async function addSale() {
     await supabaseClient.from('sales').insert([newSale]);
     form.reset(); form.querySelector('#slDate').value = today(); calcSale();
 }
-async function delSale(id) { if (confirm('Anda pasti?')) await supabaseClient.from('sales').delete().eq('id', id); }
+async function delSale(id) {
+    if (confirm('Anda pasti mahu padam rekod jualan ini?')) {
+        const { error } = await supabaseClient.from('sales').delete().eq('id', id);
+        if (error) { alert('Gagal memadam.'); console.error(error); }
+    }
+}
 async function addDebtPayment() {
     const form = document.getElementById('payDebtForm');
     const clientName = form.querySelector('#debtClient').value;
@@ -285,7 +293,12 @@ async function addPayroll() {
     await supabaseClient.from('payrolls').insert([newPayroll]);
     form.reset(); form.querySelector('#pgDate').value = today();
 }
-async function delPayroll(id) { if (confirm('Anda pasti?')) await supabaseClient.from('payrolls').delete().eq('id', id); }
+async function delPayroll(id) {
+    if (confirm('Anda pasti mahu padam rekod gaji ini?')) {
+        const { error } = await supabaseClient.from('payrolls').delete().eq('id', id);
+        if (error) { alert('Gagal memadam.'); console.error(error); }
+    }
+}
 async function deleteAllData() {
     if (prompt('AWAS! Ini akan memadam SEMUA data dari database. Taip "PADAM SEMUA" untuk sahkan.') !== 'PADAM SEMUA') {
         alert('Operasi dibatalkan.'); return;
