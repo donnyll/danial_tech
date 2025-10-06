@@ -106,9 +106,23 @@ function renderClients() {
 }
 
 function renderPayments() {
-    const tb = document.querySelector('#payTable tbody'); tb.innerHTML = '';
-    const sorted = [...ALL_PAYMENTS].sort((a,b) => new Date(b.date) - new Date(a.date));
-    sorted.forEach(p => { tb.innerHTML += `<tr><td>${p.date}</td><td>${p.client_name}</td><td>RM ${fmt(p.amount)}</td><td>${p.method}</td><td>${p.note || '-'}</td></tr>`; });
+    const tb = document.querySelector('#payTable tbody');
+    tb.innerHTML = '';
+
+    // 1. Tapis senarai bayaran untuk buang rekod 'Bayaran semasa jualan'
+    const debtPaymentsOnly = ALL_PAYMENTS.filter(p => !p.note.startsWith('Bayaran semasa jualan'));
+
+    const sorted = debtPaymentsOnly.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (sorted.length === 0) {
+        tb.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">Tiada rekod bayaran hutang ditemui.</td></tr>`;
+        return;
+    }
+
+    sorted.forEach(p => {
+        // 2. Guna 'p.note || "-"' untuk pastikan nota kosong dipapar sebagai "-"
+        tb.innerHTML += `<tr><td>${p.date}</td><td>${p.client_name}</td><td>RM ${fmt(p.amount)}</td><td>${p.method}</td><td>${p.note || '-'}</td></tr>`;
+    });
 }
 
 function renderPayroll() {
@@ -228,7 +242,19 @@ async function addClient() {
     await supabaseClient.from('clients').insert([newClient]);
     form.reset();
 }
-async function delClient(id) { if (confirm('Anda pasti?')) await supabaseClient.from('clients').delete().eq('id', id); }
+async function delClient(id) {
+    if (confirm('Anda pasti mahu padam pelanggan ini?')) {
+        const { error } = await supabaseClient.from('clients').delete().eq('id', id);
+        
+        if (error) {
+            alert('Gagal memadam pelanggan.');
+            console.error(error);
+        } else {
+            // Panggil renderAll() untuk muat semula paparan selepas berjaya padam
+            renderAll();
+        }
+    }
+}
 async function addSale() {
     const form = document.getElementById('addSaleForm');
     const clientName = form.querySelector('#slClient').value;
