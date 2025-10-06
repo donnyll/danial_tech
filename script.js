@@ -14,6 +14,7 @@ const setPIN = (v) => localStorage.setItem('thc_admin_pin', v);
 const THEME_KEY = 'thc_theme';
 const COUNTERS_KEY = 'thc_counters';
 
+// Cache data
 let ALL_STOCKS = [], ALL_SALES = [], ALL_EXPENSES = [], ALL_PAYROLLS = [], ALL_CLIENTS = [], ALL_PAYMENTS = [];
 let COUNTERS = { soldAtReset: { q12: 0, q14: 0, qi: 0 } };
 
@@ -76,7 +77,7 @@ function renderClients() {
     const sorted = [...ALL_CLIENTS].sort((a,b) => a.name.localeCompare(b.name));
     for (const c of sorted) {
         const debt = computeClientDebt(c.name);
-        tb.innerHTML += `<tr><td>${c.name}</td><td>${c.cat || '-'}</td><td>${fmt(c.p14)}/${fmt(c.p12)}/${fmt(c.pi)}</td><td>RM ${fmt(debt)}</td><td><button class="ghost danger" onclick="delClient(${c.id})">Padam</button></td></tr>`;
+        tb.innerHTML += `<tr><td>${c.name}</td><td>${c.cat || '-'}</td><td>${fmt(c.p14)}/${fmt(c.p12)}/${fmt(c.pi)}</td><td>RM ${fmt(debt.rm)}</td><td><button class="ghost danger" onclick="delClient(${c.id})">Padam</button></td></tr>`;
     }
 }
 
@@ -112,7 +113,23 @@ function computeClientDebt(clientName) {
     const clientPayments = ALL_PAYMENTS.filter(p => p.client_name === clientName);
     const totalSalesValue = clientSales.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0);
     const totalPaidValue = clientPayments.reduce((sum, p) => sum + p.amount, 0);
-    return Math.max(0, totalSalesValue - totalPaidValue);
+    const debtInRM = Math.max(0, totalSalesValue - totalPaidValue);
+
+    const sumCylinders = (records, key) => records.reduce((sum, r) => sum + (r[key] || 0), 0);
+    
+    const totalSold12 = sumCylinders(clientSales, 'q12');
+    const totalPaid12 = sumCylinders(clientSales, 'paid12') + sumCylinders(clientPayments, 'q12');
+    const debtInQ12 = totalSold12 - totalPaid12;
+
+    const totalSold14 = sumCylinders(clientSales, 'q14');
+    const totalPaid14 = sumCylinders(clientSales, 'paid14') + sumCylinders(clientPayments, 'q14');
+    const debtInQ14 = totalSold14 - totalPaid14;
+
+    const totalSoldI = sumCylinders(clientSales, 'qi');
+    const totalPaidI = sumCylinders(clientSales, 'paidI') + sumCylinders(clientPayments, 'qi');
+    const debtInQI = totalSoldI - totalPaidI;
+
+    return { rm: debtInRM, q12: debtInQ12, q14: debtInQ14, qi: debtInQI };
 }
 
 function rebuildInventoryAndGetCosts() {
@@ -316,18 +333,14 @@ function showClientResults(filter = '', resultsId, onSelect, clientList) {
     const resultsContainer = document.getElementById(resultsId);
     const clientInput = resultsContainer.previousElementSibling;
     const searchTerm = filter.toLowerCase();
-
     if (!searchTerm && document.activeElement !== clientInput) {
         resultsContainer.style.display = 'none'; return;
     }
-    
     const filteredClients = clientList.filter(client => 
         client.name.toLowerCase().includes(searchTerm) || 
         (client.cat && client.cat.toLowerCase().includes(searchTerm))
     );
-
     if (filteredClients.length === 0) { resultsContainer.style.display = 'none'; return; }
-
     resultsContainer.innerHTML = filteredClients.map(client => 
         `<div class="search-results-item" onclick="${onSelect.name}('${client.name}')">
             ${client.name} <span style="color: var(--text-secondary); font-size: 0.8em;">(${client.cat || 'Tiada Kategori'})</span>
@@ -335,13 +348,11 @@ function showClientResults(filter = '', resultsId, onSelect, clientList) {
     ).join('');
     resultsContainer.style.display = 'block';
 }
-
 function selectClient(name) {
     document.getElementById('slClient').value = name;
     document.getElementById('client-search-results').style.display = 'none';
     calcSale();
 }
-
 function selectDebtClient(name) {
     document.getElementById('debtClient').value = name;
     document.getElementById('debt-client-search-results').style.display = 'none';
@@ -352,15 +363,12 @@ function selectDebtClient(name) {
 // SETUP PERMULAAN
 // ==================
 function setupUIListeners() {
-    // Navigasi
     document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => {
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(`view-${btn.dataset.view}`).classList.add('active');
     }));
-
-    // Butang Aksi
     document.getElementById('addStock').addEventListener('click', addStock);
     document.getElementById('addExpense').addEventListener('click', addExpense);
     document.getElementById('addClient').addEventListener('click', addClient);
@@ -390,37 +398,30 @@ function setupUIListeners() {
             alert('Kiraan "Terjual" telah direset.');
         }
     });
-
-    // Butang Eksport
     document.getElementById('exportSalesCsv').addEventListener('click', () => downloadCSV(`Jualan_${today()}.csv`, ALL_SALES, ['date', 'client_name', 'q14', 'paid14', 'q12', 'paid12', 'qi', 'paidI', 'price14', 'price12', 'priceI', 'payType']));
     document.getElementById('exportStocksCsv').addEventListener('click', () => downloadCSV(`Stok_${today()}.csv`, ALL_STOCKS, ['date', 'note', 'batch', 'q14', 'c14', 'q12', 'c12', 'qi', 'ci']));
     document.getElementById('exportExpensesCsv').addEventListener('click', () => {
         const allExpenses = [...ALL_EXPENSES.map(e => ({...e, 'jenis_rekod': 'Modal Lain'})), ...ALL_PAYROLLS.map(p => ({...p, 'jenis_rekod': 'Gaji'}))];
         downloadCSV(`Perbelanjaan_${today()}.csv`, allExpenses, ['date', 'jenis_rekod', 'name', 'type', 'amount', 'note']);
     });
-    
-    // Input Events
     const slClientInput = document.getElementById('slClient');
     slClientInput.addEventListener('input', (e) => showClientResults(e.target.value, 'client-search-results', selectClient, ALL_CLIENTS));
     slClientInput.addEventListener('focus', (e) => showClientResults('', 'client-search-results', selectClient, ALL_CLIENTS));
-    
     const debtClientInput = document.getElementById('debtClient');
     debtClientInput.addEventListener('input', (e) => {
-        const debtClients = ALL_CLIENTS.filter(c => computeClientDebt(c.name) > 0);
+        const debtClients = ALL_CLIENTS.filter(c => computeClientDebt(c.name).rm > 0);
         showClientResults(e.target.value, 'debt-client-search-results', selectDebtClient, debtClients);
     });
     debtClientInput.addEventListener('focus', (e) => {
-        const debtClients = ALL_CLIENTS.filter(c => computeClientDebt(c.name) > 0);
+        const debtClients = ALL_CLIENTS.filter(c => computeClientDebt(c.name).rm > 0);
         showClientResults('', 'debt-client-search-results', selectDebtClient, debtClients);
     });
-    
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.search-container')) {
             document.getElementById('client-search-results').style.display = 'none';
             document.getElementById('debt-client-search-results').style.display = 'none';
         }
     });
-    
     document.getElementById('debtClient').addEventListener('input', (e) => {
         const clientName = e.target.value;
         const debtInfo = document.getElementById('debtInfo');
@@ -429,23 +430,16 @@ function setupUIListeners() {
              return;
         }
         const debt = computeClientDebt(clientName);
-        debtInfo.innerHTML = `Baki hutang: <b>RM ${fmt(debt)}</b>`;
+        debtInfo.innerHTML = `Baki hutang: <b>RM ${fmt(debt.rm)}</b> | Tong (14/12/I): <b>${debt.q14}/${debt.q12}/${debt.qi}</b>`;
     });
-
     ['slClient', 'slQ14', 'slPaid14', 'slQ12', 'slPaid12', 'slQI', 'slPaidI'].forEach(id => document.getElementById(id).addEventListener('input', calcSale));
-
-    // Admin Login
     document.getElementById('btnAdminLogin').addEventListener('click', () => {
         if (document.getElementById('adminPIN').value === getPIN()) {
             document.getElementById('adminLogin').style.display = 'none';
             document.getElementById('adminArea').style.display = 'block';
         } else { alert('PIN salah'); }
     });
-
-    // Tarikh
     ['stDate', 'exDate', 'slDate', 'pgDate'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = today(); });
-    
-    // Tema
     const themeBtn = document.getElementById('themeBtn');
     const currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
     document.documentElement.setAttribute('data-theme', currentTheme);
@@ -470,8 +464,20 @@ function calcSale(){
     document.getElementById('slCalc').innerHTML = `Jumlah Jualan: <b>RM ${fmt(totalSale)}</b><br>Jumlah Dibayar: <b>RM ${fmt(totalPaid)}</b><br>Baki Hutang: <b>RM ${fmt(debt)}</b>`;
 }
 
+function listenToDatabaseChanges() {
+    console.log('Mula mendengar perubahan database secara realtime...');
+    const subscription = supabaseClient
+        .channel('public-tables')
+        .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+            console.log('Perubahan diterima!', payload);
+            renderAll();
+        })
+        .subscribe();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadCounters();
     setupUIListeners();
     renderAll();
+    listenToDatabaseChanges();
 });
