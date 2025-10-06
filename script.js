@@ -323,9 +323,17 @@ function printReceipt(saleId) {
       <hr style="border:0; border-top: 1px dashed black;">
       <div style="text-align:center; font-size:11px; margin-top:6px;">Thank You</div>
     </div>`;
+    
     const printContainer = document.querySelector('.print-container');
     printContainer.innerHTML = receiptHTML;
-    setTimeout(() => { window.print(); printContainer.innerHTML = ''; }, 100);
+
+    // Panggil print() serta-merta
+    window.print();
+
+    // HANYA lengahkan proses membersihkan resit selepas 0.5 saat
+    setTimeout(() => {
+        printContainer.innerHTML = '';
+    }, 500);
 }
 
 // ==================
