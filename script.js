@@ -14,7 +14,6 @@ const setPIN = (v) => localStorage.setItem('thc_admin_pin', v);
 const THEME_KEY = 'thc_theme';
 const COUNTERS_KEY = 'thc_counters';
 
-// Cache data
 let ALL_STOCKS = [], ALL_SALES = [], ALL_EXPENSES = [], ALL_PAYROLLS = [], ALL_CLIENTS = [], ALL_PAYMENTS = [];
 let COUNTERS = { soldAtReset: { q12: 0, q14: 0, qi: 0 } };
 
@@ -22,24 +21,22 @@ function loadCounters() {
     const data = JSON.parse(localStorage.getItem(COUNTERS_KEY) || 'null');
     if (data) COUNTERS = data;
 }
-
 function saveCounters() {
     localStorage.setItem(COUNTERS_KEY, JSON.stringify(COUNTERS));
 }
 
 // ==================
-// FUNGSI UTAMA PAPARAN
+// FUNGSI UTAMA & PAPARAN
 // ==================
-
 async function renderAll() {
     document.body.style.cursor = 'wait';
     await fetchAllData();
-    // Panggil fungsi render secara serentak
     await Promise.all([
         renderStocks(), renderExpenses(), renderClients(),
         renderSales(), renderPayments(), renderPayroll(),
         recomputeSummary(), renderReport()
     ]);
+    calcSale();
     document.body.style.cursor = 'default';
 }
 
@@ -50,17 +47,9 @@ async function fetchAllData() {
     const { data: payrolls } = await supabaseClient.from('payrolls').select('*');
     const { data: clients } = await supabaseClient.from('clients').select('*');
     const { data: payments } = await supabaseClient.from('payments').select('*');
-    ALL_STOCKS = stocks || [];
-    ALL_SALES = sales || [];
-    ALL_EXPENSES = expenses || [];
-    ALL_PAYROLLS = payrolls || [];
-    ALL_CLIENTS = clients || [];
-    ALL_PAYMENTS = payments || [];
+    ALL_STOCKS = stocks || []; ALL_SALES = sales || []; ALL_EXPENSES = expenses || [];
+    ALL_PAYROLLS = payrolls || []; ALL_CLIENTS = clients || []; ALL_PAYMENTS = payments || [];
 }
-
-// ==================
-// FUNGSI PAPARAN SPESIFIK
-// ==================
 
 function renderStocks() {
     const host = document.getElementById('stockList'); host.innerHTML = '';
@@ -82,19 +71,12 @@ function renderExpenses() {
     });
 }
 
-async function renderClients() {
-    const tb = document.querySelector('#clientTable tbody');
-    const dl = document.getElementById('clientList');
-    const debtDl = document.getElementById('debtClientList');
-    tb.innerHTML = ''; dl.innerHTML = ''; debtDl.innerHTML = '';
+function renderClients() {
+    const tb = document.querySelector('#clientTable tbody'); tb.innerHTML = '';
     const sorted = [...ALL_CLIENTS].sort((a,b) => a.name.localeCompare(b.name));
     for (const c of sorted) {
         const debt = computeClientDebt(c.name);
         tb.innerHTML += `<tr><td>${c.name}</td><td>${c.cat || '-'}</td><td>${fmt(c.p14)}/${fmt(c.p12)}/${fmt(c.pi)}</td><td>RM ${fmt(debt)}</td><td><button class="ghost danger" onclick="delClient(${c.id})">Padam</button></td></tr>`;
-        dl.innerHTML += `<option value="${c.name}"></option>`;
-        if (debt > 0) {
-            debtDl.innerHTML += `<option value="${c.name}"></option>`;
-        }
     }
 }
 
@@ -104,9 +86,9 @@ function renderSales() {
     if (sorted.length === 0) { host.innerHTML = `<p class="note">Tiada rekod jualan.</p>`; return; }
     sorted.forEach((s, idx) => {
         const totalSales = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
-        const totalPaid = (s.paid12 * s.price12) + (s.paid14 * s.price14) + (s.paidI * s.priceI);
+        const totalPaid = ((s.paid12||0) * s.price12) + ((s.paid14||0) * s.price14) + ((s.paidI||0) * s.priceI);
         const debtRM = totalSales - totalPaid;
-        host.innerHTML += `<details data-id="${s.id}" ${idx === 0 ? 'open' : ''}><summary><div><span class="summary-title">${s.client_name} · ${s.date}</span><span class="summary-meta">Jumlah: RM ${fmt(totalSales)} ${debtRM > 0.01 ? `<span class="chip danger-chip" style="margin-left: 5px;">Hutang</span>` : ''}</span></div></summary><div class="details-content">${s.q14 > 0 ? `<div class="details-row"><span class="label">14KG</span><span class="value">${s.q14} (Dibayar: ${s.paid14 || 0}) @ RM ${fmt(s.price14)}</span></div>` : ''}${s.q12 > 0 ? `<div class="details-row"><span class="label">12KG</span><span class="value">${s.q12} (Dibayar: ${s.paid12 || 0}) @ RM ${fmt(s.price12)}</span></div>` : ''}${s.qi > 0 ? `<div class="details-row"><span class="label">Industri</span><span class="value">${s.qi} (Dibayar: ${s.paidI || 0}) @ RM ${fmt(s.priceI)}</span></div>` : ''}<div class="details-row"><span class="label">Bayaran</span><span class="value">${s.payType}</span></div>${debtRM > 0.01 ? `<div class="details-row"><span class="label" style="color:var(--danger)">Baki Hutang Jualan Ini</span><span class="value" style="color:var(--danger)">RM ${fmt(debtRM)}</span></div>`: ''}<div class="divider"></div><div class="record-actions" style="justify-content: flex-end;"><button class="secondary" style="width:auto;" onclick="printReceipt(${s.id})">Resit</button><button class="danger" style="width: auto;" onclick="delSale(${s.id})">Padam</button></div></div></details>`;
+        host.innerHTML += `<details data-id="${s.id}" ${idx === 0 ? 'open' : ''}><summary><div><span class="summary-title">${s.client_name} · ${s.date}</span><span class="summary-meta">Jumlah: RM ${fmt(totalSales)} ${debtRM > 0.01 ? `<span class="chip danger-chip" style="margin-left: 5px;">Hutang</span>` : ''}</span></div></summary><div class="details-content">${s.q14 > 0 ? `<div class="details-row"><span class="label">14KG</span><span class="value">${s.q14} (Dibayar: ${s.paid14 || 0}) @ RM ${fmt(s.price14)}</span></div>` : ''}${s.q12 > 0 ? `<div class="details-row"><span class="label">12KG</span><span class="value">${s.q12} (Dibayar: ${s.paid12 || 0}) @ RM ${fmt(s.price12)}</span></div>` : ''}${s.qi > 0 ? `<div class="details-row"><span class="label">Industri</span><span class="value">${s.qi} (Dibayar: ${s.paidI || 0}) @ RM ${fmt(s.priceI)}</span></div>` : ''}<div class="details-row"><span class="label">Bayaran</span><span class="value">${s.payType}</span></div>${debtRM > 0.01 ? `<div class="details-row"><span class="label" style="color:var(--danger)">Baki Hutang Jualan Ini</span><span class="value" style="color:var(--danger)">RM ${fmt(debtRM)}</span></div>`: ''}<div class="divider"></div><div class="record-actions" style="justify-content: flex-end;"><button class="secondary" style="width:auto;" onclick='printReceipt(${s.id})'>Resit</button><button class="danger" style="width: auto;" onclick="delSale(${s.id})">Padam</button></div></div></details>`;
     });
 }
 
@@ -125,14 +107,12 @@ function renderPayroll() {
 // ==================
 // FUNGSI PENGIRAAN
 // ==================
-
 function computeClientDebt(clientName) {
     const clientSales = ALL_SALES.filter(s => s.client_name === clientName);
     const clientPayments = ALL_PAYMENTS.filter(p => p.client_name === clientName);
     const totalSalesValue = clientSales.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0);
-    const totalPaidAtSale = clientSales.reduce((sum, s) => sum + ((s.paid12 || 0) * s.price12) + ((s.paid14 || 0) * s.price14) + ((s.paidI || 0) * s.priceI), 0);
-    const totalDebtPayments = clientPayments.filter(p => p.note !== `Bayaran semasa jualan`).reduce((sum, p) => sum + p.amount, 0);
-    return Math.max(0, totalSalesValue - totalPaidAtSale - totalDebtPayments);
+    const totalPaidValue = clientPayments.reduce((sum, p) => sum + p.amount, 0);
+    return Math.max(0, totalSalesValue - totalPaidValue);
 }
 
 function rebuildInventoryAndGetCosts() {
@@ -143,25 +123,23 @@ function rebuildInventoryAndGetCosts() {
         if (s.q14 > 0) inventory.q14.push({ batch: s.batch, remain: s.q14, cost: s.c14 });
         if (s.qi > 0) inventory.qi.push({ batch: s.batch, remain: s.qi, cost: s.ci });
     });
-
-    const popInventory = (type, qty) => {
+    const popInventory = (type, qty, inv) => {
         let totalCost = 0; let need = qty;
-        let tempInventory = JSON.parse(JSON.stringify(inventory[type]));
-        while (need > 0 && tempInventory.length > 0) {
-            const node = tempInventory[0];
+        while (need > 0 && inv[type].length > 0) {
+            const node = inv[type][0];
             const take = Math.min(node.remain, need);
             if (take > 0) { totalCost += take * node.cost; node.remain -= take; need -= take; }
-            if (node.remain === 0) { tempInventory.shift(); }
+            if (node.remain === 0) { inv[type].shift(); }
         }
         return totalCost;
     };
-
     let totalCostOfGoodsSold = 0;
+    let tempInventory = JSON.parse(JSON.stringify(inventory));
     const sortedSales = [...ALL_SALES].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     sortedSales.forEach(s => {
-        if (s.q12 > 0) totalCostOfGoodsSold += popInventory('q12', s.q12);
-        if (s.q14 > 0) totalCostOfGoodsSold += popInventory('q14', s.q14);
-        if (s.qi > 0) totalCostOfGoodsSold += popInventory('qi', s.qi);
+        if (s.q12 > 0) totalCostOfGoodsSold += popInventory('q12', s.q12, tempInventory);
+        if (s.q14 > 0) totalCostOfGoodsSold += popInventory('q14', s.q14, tempInventory);
+        if (s.qi > 0) totalCostOfGoodsSold += popInventory('qi', s.qi, tempInventory);
     });
     return totalCostOfGoodsSold;
 }
@@ -170,7 +148,6 @@ function recomputeSummary() {
     const totalIn = (key) => ALL_STOCKS.reduce((sum, s) => sum + (s[key] || 0), 0);
     const totalSold = (key) => ALL_SALES.reduce((sum, s) => sum + (s[key] || 0), 0);
     const latestStock = [...ALL_STOCKS].sort((a,b) => new Date(b.date) - new Date(a.date) || b.batch - a.batch)[0] || {q12:0, q14:0, qi:0};
-
     const kp = [
         { k: 'Stok Terkini 14KG', v: latestStock.q14 }, { k: 'Stok Terkini 12KG', v: latestStock.q12 }, { k: 'Stok Terkini Industri', v: latestStock.qi },
         { k: 'Baki 14KG', v: totalIn('q14') - totalSold('q14') }, { k: 'Baki 12KG', v: totalIn('q12') - totalSold('q12') }, { k: 'Baki Industri', v: totalIn('qi') - totalSold('qi') },
@@ -200,7 +177,7 @@ function renderReport() {
 }
 
 // ==================
-// FUNGSI AKSI (ACTIONS)
+// FUNGSI AKSI
 // ==================
 async function addStock() {
     const form = document.getElementById('addStockForm');
@@ -211,7 +188,6 @@ async function addStock() {
     else { alert('Stok berjaya ditambah!'); form.reset(); form.querySelector('#stDate').value = today(); renderAll(); }
 }
 async function delStock(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('stocks').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
-
 async function addExpense() {
     const form = document.getElementById('addExpenseForm');
     const newExpense = { date: form.querySelector('#exDate').value || today(), type: form.querySelector('#exType').value, amount: +form.querySelector('#exAmt').value || 0, note: form.querySelector('#exNote').value };
@@ -221,7 +197,6 @@ async function addExpense() {
     else { alert('Modal berjaya ditambah!'); form.reset(); form.querySelector('#exDate').value = today(); renderAll(); }
 }
 async function delExpense(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('expenses').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
-
 async function addClient() {
     const form = document.getElementById('addClientForm');
     const newClient = { name: form.querySelector('#clName').value, cat: form.querySelector('#clCat').value, p14: +form.querySelector('#clP14').value || 0, p12: +form.querySelector('#clP12').value || 0, pi: +form.querySelector('#clPI').value || 0 };
@@ -231,14 +206,12 @@ async function addClient() {
     else { alert('Pelanggan berjaya ditambah!'); form.reset(); renderAll(); }
 }
 async function delClient(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('clients').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
-
 async function addSale() {
     const form = document.getElementById('addSaleForm');
     const clientName = form.querySelector('#slClient').value;
     if (!clientName) { alert('Sila pilih pelanggan.'); return; }
     const clientData = ALL_CLIENTS.find(c => c.name === clientName);
     if (!clientData) { alert('Pelanggan tidak ditemui.'); return; }
-
     const newSale = {
         date: form.querySelector('#slDate').value || today(), client_name: clientName,
         q14: +form.querySelector('#slQ14').value || 0, paid14: +form.querySelector('#slPaid14').value || 0,
@@ -247,21 +220,17 @@ async function addSale() {
         price14: clientData.p14, price12: clientData.p12, priceI: clientData.pi,
         payType: form.querySelector('#slPayType').value, remark: form.querySelector('#slRemark').value
     };
-
     if (newSale.q12 + newSale.q14 + newSale.qi <= 0) { alert('Sila masukkan sekurang-kurangnya satu tong.'); return; }
     if (newSale.paid14 > newSale.q14 || newSale.paid12 > newSale.q12 || newSale.paidI > newSale.qi) { alert('Tong dibayar tidak boleh melebihi total tong.'); return; }
-    
-    const paidAmount = (newSale.paid12 * newSale.price12) + (newSale.paid14 * newSale.price14) + (newSale.paidI * newSale.priceI);
+    const paidAmount = ((newSale.paid12||0) * newSale.price12) + ((newSale.paid14||0) * newSale.price14) + ((newSale.paidI||0) * newSale.priceI);
     if (paidAmount > 0) {
         await supabaseClient.from('payments').insert([{ date: newSale.date, client_name: newSale.client_name, amount: paidAmount, method: newSale.payType, note: `Bayaran semasa jualan. ${newSale.remark}`.trim() }]);
     }
-
     const { error } = await supabaseClient.from('sales').insert([newSale]);
     if (error) { alert('Gagal merekod jualan!'); console.error(error); }
-    else { alert('Jualan berjaya direkod!'); form.reset(); form.querySelector('#slDate').value = today(); renderAll(); }
+    else { alert('Jualan berjaya direkod!'); form.reset(); form.querySelector('#slDate').value = today(); calcSale(); renderAll(); }
 }
 async function delSale(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('sales').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
-
 async function addDebtPayment() {
     const form = document.getElementById('payDebtForm');
     const clientName = form.querySelector('#debtClient').value;
@@ -276,7 +245,6 @@ async function addDebtPayment() {
     if (error) { alert('Gagal merekod bayaran!'); console.error(error); } 
     else { alert('Bayaran hutang berjaya direkod!'); form.reset(); document.getElementById('debtInfo').innerHTML = 'Pilih pelanggan untuk lihat baki hutang.'; renderAll(); }
 }
-
 async function addPayroll() {
     const form = document.getElementById('addPayrollForm');
     const newPayroll = { date: form.querySelector('#pgDate').value || today(), name: form.querySelector('#pgName').value, amount: +form.querySelector('#pgAmt').value || 0, note: form.querySelector('#pgNote').value };
@@ -287,7 +255,6 @@ async function addPayroll() {
     else { alert('Rekod gaji berjaya ditambah!'); form.reset(); form.querySelector('#pgDate').value = today(); renderAll(); }
 }
 async function delPayroll(id) { if (!confirm('Anda pasti?')) return; const { error } = await supabaseClient.from('payrolls').delete().eq('id', id); if (error) alert('Gagal padam.'); else renderAll(); }
-
 async function deleteAllData() {
     if (prompt('AWAS! Ini akan memadam SEMUA data dari database. Taip "PADAM SEMUA" untuk sahkan.') !== 'PADAM SEMUA') {
         alert('Operasi dibatalkan.'); return;
@@ -299,7 +266,6 @@ async function deleteAllData() {
         alert('Semua data telah berjaya dipadam dari database.'); renderAll();
     } catch (error) { alert('Gagal memadam semua data.'); console.error(error); }
 }
-
 function downloadCSV(filename, data, headers) {
     const processRow = row => headers.map(header => JSON.stringify(row[header.toLowerCase().replace(/\s+/g, '_')] || '')).join(',');
     const csvContent = [headers.join(','), ...data.map(processRow)].join('\n');
@@ -310,13 +276,12 @@ function downloadCSV(filename, data, headers) {
     link.click();
     URL.revokeObjectURL(link.href);
 }
-
 function printReceipt(saleId) {
     const s = ALL_SALES.find(x => x.id === saleId); if (!s) return;
     const total = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
-    const paid  = (s.paid12 * s.price12) + (s.paid14 * s.price14) + (s.paidI * s.priceI);
+    const paid  = ((s.paid12||0) * s.price12) + ((s.paid14||0) * s.price14) + ((s.paidI||0) * s.priceI);
     const receiptHTML = `
-    <div id="receipt" style="font-family: monospace; background: white; color: black; width: 300px; padding: 10px;">
+    <div id="receipt">
       <div style="text-align:center; font-weight:bold; font-size:16px;">Tanjung Homemade Creative</div>
       <div style="text-align:center; font-size:10px; line-height:1.2;">lot633 jalan guchil bayam, 15200 kota bharu<br>Tel: 01161096469 | SSM: KT0299501-M</div>
       <hr style="border:0; border-top: 1px dashed black;">
@@ -341,8 +306,46 @@ function printReceipt(saleId) {
     </div>`;
     const printContainer = document.querySelector('.print-container');
     printContainer.innerHTML = receiptHTML;
-    window.print();
-    printContainer.innerHTML = '';
+    setTimeout(() => { window.print(); printContainer.innerHTML = ''; }, 100);
+}
+
+// ==================
+// FUNGSI CARIAN KHAS
+// ==================
+function showClientResults(filter = '', resultsId, onSelect, clientList) {
+    const resultsContainer = document.getElementById(resultsId);
+    const clientInput = resultsContainer.previousElementSibling;
+    const searchTerm = filter.toLowerCase();
+
+    if (!searchTerm && document.activeElement !== clientInput) {
+        resultsContainer.style.display = 'none'; return;
+    }
+    
+    const filteredClients = clientList.filter(client => 
+        client.name.toLowerCase().includes(searchTerm) || 
+        (client.cat && client.cat.toLowerCase().includes(searchTerm))
+    );
+
+    if (filteredClients.length === 0) { resultsContainer.style.display = 'none'; return; }
+
+    resultsContainer.innerHTML = filteredClients.map(client => 
+        `<div class="search-results-item" onclick="${onSelect.name}('${client.name}')">
+            ${client.name} <span style="color: var(--text-secondary); font-size: 0.8em;">(${client.cat || 'Tiada Kategori'})</span>
+        </div>`
+    ).join('');
+    resultsContainer.style.display = 'block';
+}
+
+function selectClient(name) {
+    document.getElementById('slClient').value = name;
+    document.getElementById('client-search-results').style.display = 'none';
+    calcSale();
+}
+
+function selectDebtClient(name) {
+    document.getElementById('debtClient').value = name;
+    document.getElementById('debt-client-search-results').style.display = 'none';
+    document.getElementById('debtClient').dispatchEvent(new Event('input'));
 }
 
 // ==================
@@ -362,7 +365,6 @@ function setupUIListeners() {
     document.getElementById('addExpense').addEventListener('click', addExpense);
     document.getElementById('addClient').addEventListener('click', addClient);
     document.getElementById('addSale').addEventListener('click', addSale);
-    document.getElementById('btnRefreshClients').addEventListener('click', renderAll);
     document.getElementById('btnPayDebt').addEventListener('click', addDebtPayment);
     document.getElementById('addPayroll').addEventListener('click', addPayroll);
     document.getElementById('savePIN').addEventListener('click', () => {
@@ -398,13 +400,38 @@ function setupUIListeners() {
     });
     
     // Input Events
+    const slClientInput = document.getElementById('slClient');
+    slClientInput.addEventListener('input', (e) => showClientResults(e.target.value, 'client-search-results', selectClient, ALL_CLIENTS));
+    slClientInput.addEventListener('focus', (e) => showClientResults('', 'client-search-results', selectClient, ALL_CLIENTS));
+    
+    const debtClientInput = document.getElementById('debtClient');
+    debtClientInput.addEventListener('input', (e) => {
+        const debtClients = ALL_CLIENTS.filter(c => computeClientDebt(c.name) > 0);
+        showClientResults(e.target.value, 'debt-client-search-results', selectDebtClient, debtClients);
+    });
+    debtClientInput.addEventListener('focus', (e) => {
+        const debtClients = ALL_CLIENTS.filter(c => computeClientDebt(c.name) > 0);
+        showClientResults('', 'debt-client-search-results', selectDebtClient, debtClients);
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+            document.getElementById('client-search-results').style.display = 'none';
+            document.getElementById('debt-client-search-results').style.display = 'none';
+        }
+    });
+    
     document.getElementById('debtClient').addEventListener('input', (e) => {
         const clientName = e.target.value;
         const debtInfo = document.getElementById('debtInfo');
-        if (!clientName) { debtInfo.innerHTML = 'Pilih pelanggan.'; return; }
+        if (!clientName || !ALL_CLIENTS.find(c => c.name === clientName)) {
+             debtInfo.innerHTML = 'Pilih pelanggan yang sah untuk lihat baki hutang.'; 
+             return;
+        }
         const debt = computeClientDebt(clientName);
         debtInfo.innerHTML = `Baki hutang: <b>RM ${fmt(debt)}</b>`;
     });
+
     ['slClient', 'slQ14', 'slPaid14', 'slQ12', 'slPaid12', 'slQI', 'slPaidI'].forEach(id => document.getElementById(id).addEventListener('input', calcSale));
 
     // Admin Login
