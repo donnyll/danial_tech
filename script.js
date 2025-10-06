@@ -239,9 +239,13 @@ async function addClient() {
     form.reset();
 }
 async function delClient(id) {
-    if (confirm('Anda pasti mahu padam pelanggan ini?')) {
+    if (confirm('Anda pasti?')) {
         const { error } = await supabaseClient.from('clients').delete().eq('id', id);
-        if (error) { alert('Gagal memadam.'); console.error(error); }
+        if (error) { 
+            // Paparkan mesej ralat sebenar di dalam alert
+            alert('Gagal memadam. Ralat: ' + error.message); 
+            console.error(error);
+        }
     }
 }
 async function addSale() {
