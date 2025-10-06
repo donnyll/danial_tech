@@ -243,7 +243,7 @@ async function delClient(id) {
         const { error } = await supabaseClient.from('clients').delete().eq('id', id);
         if (error) { 
             // Paparkan mesej ralat sebenar di dalam alert
-            alert('Gagal memadam. Ralat: ' + error.message); 
+            alert('Sila Tunggu Sebentar'); 
             console.error(error);
         }
     }
