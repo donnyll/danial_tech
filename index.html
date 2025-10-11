@@ -41,7 +41,7 @@
                     <label for="exType">Jenis Modal</label>
                     <select id="exType"><option>Minyak Lori</option><option>Upah Kilang</option><option>Others</option></select>
                 </div>
-                <div class="form-group"><label for="exAmt">Jumlah (RM)</label><input type="number" id="exAmt" step="0.01" min="0"></div>
+                <div class="form-group"><label for="exAmt">Jumlah (RM)</label><input type="number" id="exAmt" step="0.01" min="0" value=""></div>
                 <div class="form-group"><label for="exNote">Nota</label><input id="exNote"></div>
                 <button type="button" id="addExpense">Tambah Modal</button>
             </form>
@@ -108,16 +108,16 @@
                     <div style="flex:1;"><label for="adminPIN">PIN Admin</label><input id="adminPIN" type="password" placeholder="****"></div>
                     <button id="btnAdminLogin" style="width: auto; padding: 12px 20px;">Masuk</button>
                 </div>
-                <p class="note">PIN Lalai: <b></b>.</p>
+                <p class="note">PIN Lalai: <b>boss123</b>.</p>
             </div>
             <div id="adminArea" style="display: none;">
                 <form class="card" id="addClientForm">
                     <h3>Urus Pelanggan</h3>
                     <div class="form-group"><label for="clName">Nama</label><input id="clName"></div>
                     <div class="form-group"><label for="clCat">Kategori</label><input id="clCat" placeholder="cth: Peruncit, Kedai Makan"></div>
-                    <div class="form-group"><label for="clP14">Harga Jual 14KG (RM)</label><input type="number" id="clP14" step="0.01" min="0"></div>
-                    <div class="form-group"><label for="clP12">Harga Jual 12KG (RM)</label><input type="number" id="clP12" step="0.01" min="0"></div>
-                    <div class="form-group"><label for="clPI">Harga Jual Industri (RM)</label><input type="number" id="clPI" step="0.01" min="0"></div>
+                    <div class="form-group"><label for="clP14">Harga Jual 14KG (RM)</label><input type="number" id="clP14" step="0.01" min="0" value=""></div>
+                    <div class="form-group"><label for="clP12">Harga Jual 12KG (RM)</label><input type="number" id="clP12" step="0.01" min="0" value=""></div>
+                    <div class="form-group"><label for="clPI">Harga Jual Industri (RM)</label><input type="number" id="clPI" step="0.01" min="0" value=""></div>
                     <button type="button" id="addClient">Tambah Pelanggan</button>
                     <details style="margin-top: 20px;">
                         <summary style="font-weight: 500; cursor:pointer;">Lihat Senarai Pelanggan</summary>
@@ -132,7 +132,7 @@
                     <h3>Rekod Gaji Pekerja</h3>
                     <div class="form-group"><label for="pgDate">Tarikh</label><input type="date" id="pgDate"></div>
                     <div class="form-group"><label for="pgName">Nama Pekerja</label><input id="pgName"></div>
-                    <div class="form-group"><label for="pgAmt">Jumlah (RM)</label><input type="number" id="pgAmt" step="0.01" min="0"></div>
+                    <div class="form-group"><label for="pgAmt">Jumlah (RM)</label><input type="number" id="pgAmt" step="0.01" min="0" value=""></div>
                     <div class="form-group"><label for="pgNote">Nota</label><input id="pgNote"></div>
                     <button type="button" id="addPayroll">Tambah Gaji</button>
                     <details style="margin-top: 20px;">
@@ -144,11 +144,14 @@
                     <h3>Ringkasan & Laporan</h3>
                     <div id="reportKPI" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"></div>
                     <div class="divider"></div>
-                    <p class="note">Eksport data dalam format CSV untuk simpanan atau analisa lanjut.</p>
-                    <div class="btn-row" style="margin-top: 10px; display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <label style="font-weight: 600; margin-bottom: 4px; display: block;">Eksport Data (CSV)</label>
+                    <p class="note">Simpan salinan data anda untuk rekod atau analisa di luar sistem.</p>
+                    <div class="btn-row" style="margin-top: 10px; display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <button type="button" id="exportSalesCsv" class="secondary">Jualan</button>
                         <button type="button" id="exportStocksCsv" class="secondary">Stok</button>
                         <button type="button" id="exportExpensesCsv" class="secondary">Belanja</button>
+                        <button type="button" id="exportClientsCsv" class="secondary">Pelanggan</button>
+                        <button type="button" id="exportPaymentsCsv" class="secondary">Bayaran</button>
                     </div>
                 </div>
                 <div class="card">

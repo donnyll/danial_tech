@@ -186,16 +186,16 @@ function renderReport() {
     const totalCostOfGoodsSold = rebuildInventoryAndGetCosts();
     const totalOtherCost = ALL_EXPENSES.reduce((s, x) => s + Number(x.amount || 0), 0);
     const totalPayrollCost = ALL_PAYROLLS.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const totalSalesRM = ALL_SALES.reduce((s, x) => s + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * x.priceI), 0);
-    const totalPaymentsRM = ALL_PAYMENTS.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const totalDebtRM = totalSalesRM - totalPaymentsRM;
-    const grossProfit = totalSalesRM - totalCostOfGoodsSold;
+    const totalSalesValue = ALL_SALES.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0);
+    const totalPaymentsReceived = ALL_PAYMENTS.reduce((sum, p) => sum + p.amount, 0);
+    const totalDebtRM = totalSalesValue - totalPaymentsReceived;
+    const grossProfit = totalSalesValue - totalCostOfGoodsSold;
     const netProfit = grossProfit - totalOtherCost - totalPayrollCost;
     const kpis = [
-        ['Jumlah Jualan', totalSalesRM, true], ['Untung Bersih', netProfit, true],
+        ['Jumlah Jualan', totalSalesValue, true], ['Untung Bersih', netProfit, true],
         ['Jumlah Hutang', totalDebtRM, true], ['Untung Kasar', grossProfit, true],
         ['Modal Gas Terpakai', totalCostOfGoodsSold, true], ['Modal Lain', totalOtherCost, true],
-        ['Gaji Dibayar', totalPayrollCost, true], ['Bayaran Diterima', totalPaymentsRM, true],
+        ['Gaji Dibayar', totalPayrollCost, true], ['Bayaran Diterima', totalPaymentsReceived, true],
     ];
     document.getElementById('reportKPI').innerHTML = kpis.map(([label, value, isCurrency]) => {
         return `<div class="kpi" style="background: var(--surface-2);"><h4>${label}</h4><div class="v">${isCurrency ? `RM ${fmt(value)}` : (value || 0).toLocaleString()}</div></div>`;
@@ -242,8 +242,7 @@ async function delClient(id) {
     if (confirm('Anda pasti?')) {
         const { error } = await supabaseClient.from('clients').delete().eq('id', id);
         if (error) { 
-            // Paparkan mesej ralat sebenar di dalam alert
-            alert('Sila Tunggu Sebentar'); 
+            alert('Gagal memadam pelanggan. Pastikan tiada jualan atau bayaran yang terikat dengan pelanggan ini.'); 
             console.error(error);
         }
     }
@@ -324,6 +323,7 @@ function downloadCSV(filename, data, headers) {
     link.click();
     URL.revokeObjectURL(link.href);
 }
+
 function printReceipt(saleId) {
     const s = ALL_SALES.find(x => x.id === saleId); if (!s) return;
     const total = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
@@ -355,14 +355,8 @@ function printReceipt(saleId) {
     
     const printContainer = document.querySelector('.print-container');
     printContainer.innerHTML = receiptHTML;
-
-    // Panggil print() serta-merta
     window.print();
-
-    // HANYA lengahkan proses membersihkan resit selepas 0.5 saat
-    setTimeout(() => {
-        printContainer.innerHTML = '';
-    }, 500);
+    setTimeout(() => { printContainer.innerHTML = ''; }, 500);
 }
 
 // ==================
@@ -441,12 +435,31 @@ function setupUIListeners() {
             alert('Kiraan "Terjual" telah direset.');
         }
     });
+
+    // Event listeners untuk butang eksport CSV
     document.getElementById('exportSalesCsv').addEventListener('click', () => downloadCSV(`Jualan_${today()}.csv`, ALL_SALES, ['date', 'client_name', 'q14', 'paid14', 'q12', 'paid12', 'qi', 'paidI', 'price14', 'price12', 'priceI', 'payType']));
     document.getElementById('exportStocksCsv').addEventListener('click', () => downloadCSV(`Stok_${today()}.csv`, ALL_STOCKS, ['date', 'note', 'batch', 'q14', 'c14', 'q12', 'c12', 'qi', 'ci']));
     document.getElementById('exportExpensesCsv').addEventListener('click', () => {
         const allExpenses = [...ALL_EXPENSES.map(e => ({...e, 'jenis_rekod': 'Modal Lain'})), ...ALL_PAYROLLS.map(p => ({...p, 'jenis_rekod': 'Gaji'}))];
         downloadCSV(`Perbelanjaan_${today()}.csv`, allExpenses, ['date', 'jenis_rekod', 'name', 'type', 'amount', 'note']);
     });
+    
+    // --> [BARU] Fungsi eksport untuk Pelanggan dan Bayaran
+    function exportClientsCsv() {
+        const dataToExport = ALL_CLIENTS.map(c => {
+            const debt = computeClientDebt(c.name);
+            return { ...c, hutang_rm: debt.rm, hutang_tong_14kg: debt.q14, hutang_tong_12kg: debt.q12, hutang_tong_industri: debt.qi };
+        });
+        const headers = ['name', 'cat', 'p14', 'p12', 'pi', 'hutang_rm', 'hutang_tong_14kg', 'hutang_tong_12kg', 'hutang_tong_industri'];
+        downloadCSV(`Pelanggan_${today()}.csv`, dataToExport, headers);
+    }
+    function exportPaymentsCsv() {
+        downloadCSV(`Bayaran_${today()}.csv`, ALL_PAYMENTS, ['date', 'client_name', 'amount', 'method', 'note', 'q14', 'q12', 'qi']);
+    }
+    document.getElementById('exportClientsCsv').addEventListener('click', exportClientsCsv);
+    document.getElementById('exportPaymentsCsv').addEventListener('click', exportPaymentsCsv);
+    // <-- [BARU] Berakhir
+
     const slClientInput = document.getElementById('slClient');
     slClientInput.addEventListener('input', (e) => showClientResults(e.target.value, 'client-search-results', selectClient, ALL_CLIENTS));
     slClientInput.addEventListener('focus', (e) => showClientResults('', 'client-search-results', selectClient, ALL_CLIENTS));
@@ -524,5 +537,3 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
     listenToDatabaseChanges();
 });
-
-//nak ubah semua form input dari value 0 kepada null. Supaya user senang nak keyin
