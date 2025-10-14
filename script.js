@@ -2,7 +2,7 @@
 // SETUP & KONFIGURASI
 // ==================
 const SUPABASE_URL = 'https://dxyvftujqgkjmbqpgyfg.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eXZmdHVqcWdram1icXBneWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2Njc3MTUsImV4cCI6MjA3NTI0MzcxNX0.IVXS3hz_iO4S5B5KmQJJEcepzFqtTW-cxbmQmD7aevE';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzIΙNiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eXZmdHVqcWdram1icXBneWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2Njc3MTUsImV4cCI6MjA3NTI0MzcxNX0.IVXS3hz_iO4S5B5KmQJJEcepzFqtTW-cxbmQmD7aevE';
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -211,7 +211,9 @@ function renderReport(period = 'all') {
     
     const totalDebtRM = ALL_SALES.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0) - ALL_PAYMENTS.reduce((sum, p) => sum + p.amount, 0);
     
-    const totalPaymentsReceived = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+    const totalCashPayments = filteredPayments.filter(p => p.method && p.method.toLowerCase() === 'cash').reduce((sum, p) => sum + p.amount, 0);
+    const totalTransferPayments = filteredPayments.filter(p => p.method && p.method.toLowerCase() === 'transfer').reduce((sum, p) => sum + p.amount, 0);
+    const totalPaymentsReceived = totalCashPayments + totalTransferPayments;
     
     const grossProfit = totalSalesValue - totalCostOfGoodsSold;
     const netProfit = grossProfit - totalOtherCost - totalPayrollCost;
@@ -220,10 +222,11 @@ function renderReport(period = 'all') {
         ['Jumlah Jualan', totalSalesValue, true], ['Untung Bersih', netProfit, true],
         ['Jumlah Hutang (Semua)', totalDebtRM, true], ['Untung Kasar', grossProfit, true],
         ['Modal Gas Terpakai', totalCostOfGoodsSold, true], ['Modal Lain', totalOtherCost, true],
-        ['Gaji Dibayar', totalPayrollCost, true], ['Bayaran Diterima', totalPaymentsReceived, true],
+        ['Gaji Dibayar', totalPayrollCost, true], 
+        ['Bayaran Diterima', totalPaymentsReceived, true, `Tunai: RM ${fmt(totalCashPayments)}<br>Transfer: RM ${fmt(totalTransferPayments)}`],
     ];
-    document.getElementById('reportKPI').innerHTML = kpis.map(([label, value, isCurrency]) => {
-        return `<div class="kpi" style="background: var(--surface-2);"><h4>${label}</h4><div class="v">${isCurrency ? `RM ${fmt(value)}` : (value || 0).toLocaleString()}</div></div>`;
+    document.getElementById('reportKPI').innerHTML = kpis.map(([label, value, isCurrency, subtext]) => {
+        return `<div class="kpi" style="background: var(--surface-2);"><h4>${label}</h4><div class="v">${isCurrency ? `RM ${fmt(value)}` : (value || 0).toLocaleString()}</div>${subtext ? `<div class="sub-v">${subtext}</div>` : ''}</div>`;
     }).join('');
 }
 
@@ -384,6 +387,24 @@ function printReceipt(saleId) {
     setTimeout(() => { printContainer.innerHTML = ''; }, 500);
 }
 
+function resetReportView() {
+    const totalDebtRM = ALL_SALES.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0) - ALL_PAYMENTS.reduce((sum, p) => sum + p.amount, 0);
+
+    const kpis = [
+        ['Jumlah Jualan', 0, true], ['Untung Bersih', 0, true],
+        ['Jumlah Hutang (Semua)', totalDebtRM, true], ['Untung Kasar', 0, true],
+        ['Modal Gas Terpakai', 0, true], ['Modal Lain', 0, true],
+        ['Gaji Dibayar', 0, true], 
+        ['Bayaran Diterima', 0, true, `Tunai: RM 0.00<br>Transfer: RM 0.00`],
+    ];
+
+    document.getElementById('reportKPI').innerHTML = kpis.map(([label, value, isCurrency, subtext]) => {
+        return `<div class="kpi" style="background: var(--surface-2);"><h4>${label}</h4><div class="v">${isCurrency ? `RM ${fmt(value)}` : (value || 0).toLocaleString()}</div>${subtext ? `<div class="sub-v">${subtext}</div>` : ''}</div>`;
+    }).join('');
+    
+    document.querySelectorAll('#reportPeriodBtns button').forEach(btn => btn.classList.remove('active'));
+}
+
 // ==================
 // FUNGSI CARIAN KHAS
 // ==================
@@ -461,6 +482,9 @@ function setupUIListeners() {
         }
     });
 
+    document.getElementById('resetReportBtn').addEventListener('click', resetReportView);
+
+    // Event listeners untuk butang eksport CSV
     document.getElementById('exportSalesCsv').addEventListener('click', () => downloadCSV(`Jualan_${today()}.csv`, ALL_SALES, ['date', 'client_name', 'q14', 'paid14', 'q12', 'paid12', 'qi', 'paidI', 'price14', 'price12', 'priceI', 'payType']));
     document.getElementById('exportStocksCsv').addEventListener('click', () => downloadCSV(`Stok_${today()}.csv`, ALL_STOCKS, ['date', 'note', 'batch', 'q14', 'c14', 'q12', 'c12', 'qi', 'ci']));
     document.getElementById('exportExpensesCsv').addEventListener('click', () => {
@@ -569,3 +593,4 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
     listenToDatabaseChanges();
 });
+

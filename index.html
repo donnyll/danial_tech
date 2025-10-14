@@ -145,11 +145,14 @@
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <h3>Ringkasan & Laporan</h3>
-                        <div id="reportPeriodBtns" style="display: flex; gap: 5px;">
-                            <button data-period="day" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Hari Ini</button>
-                            <button data-period="week" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Minggu Ini</button>
-                            <button data-period="month" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Bulan Ini</button>
-                            <button data-period="all" class="secondary active" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Semua</button>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <div id="reportPeriodBtns" style="display: flex; gap: 5px;">
+                                <button data-period="day" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Hari Ini</button>
+                                <button data-period="week" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Minggu Ini</button>
+                                <button data-period="month" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Bulan Ini</button>
+                                <button data-period="all" class="secondary active" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Semua</button>
+                            </div>
+                            <button id="resetReportBtn" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto; margin-left: 10px; border-color: var(--warn); color: var(--warn);">Reset</button>
                         </div>
                     </div>
                     <div id="reportKPI" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"></div>
@@ -205,3 +208,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+
