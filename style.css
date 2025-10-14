@@ -1,5 +1,5 @@
 :root {
-    --bg: #0d1117; --surface: #161b22; --surface-2: #21262d; --border: #30363d;
+    --bg: #000000; --surface: #161b22; --surface-2: #21262d; --border: #30363d;
     --text-primary: #e6edf3; --text-secondary: #8b949e; --text-link: #58a6ff;
     --primary: #238636; --primary-hover: #2ea043; --danger: #da3633; --danger-hover: #f85149;
     --warn: #f59e0b; --ok: #34d399; --chip-1: #8957e5; --chip-2: #2188ff; --chip-3: #e3b341;

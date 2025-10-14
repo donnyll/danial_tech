@@ -141,7 +141,7 @@ function computeClientDebt(clientName) {
     return { rm: debtInRM, q12: debtInQ12, q14: debtInQ14, qi: debtInQI };
 }
 
-function rebuildInventoryAndGetCosts() {
+function rebuildInventoryAndGetCosts(salesToProcess = null) {
     let inventory = { q12: [], q14: [], qi: [] };
     const sortedStocks = [...ALL_STOCKS].sort((a, b) => new Date(a.date) - new Date(b.date) || a.batch - b.batch);
     sortedStocks.forEach(s => {
@@ -161,7 +161,8 @@ function rebuildInventoryAndGetCosts() {
     };
     let totalCostOfGoodsSold = 0;
     let tempInventory = JSON.parse(JSON.stringify(inventory));
-    const sortedSales = [...ALL_SALES].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const salesData = salesToProcess || ALL_SALES;
+    const sortedSales = [...salesData].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     sortedSales.forEach(s => {
         if (s.q12 > 0) totalCostOfGoodsSold += popInventory('q12', s.q12, tempInventory);
         if (s.q14 > 0) totalCostOfGoodsSold += popInventory('q14', s.q14, tempInventory);
@@ -182,18 +183,42 @@ function recomputeSummary() {
     document.getElementById('summaryBar').innerHTML = kp.map(x => `<div class="kpi"><h4>${x.k}</h4><div class="v">${(x.v || 0).toLocaleString()}</div></div>`).join('');
 }
 
-function renderReport() {
-    const totalCostOfGoodsSold = rebuildInventoryAndGetCosts();
-    const totalOtherCost = ALL_EXPENSES.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const totalPayrollCost = ALL_PAYROLLS.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const totalSalesValue = ALL_SALES.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0);
-    const totalPaymentsReceived = ALL_PAYMENTS.reduce((sum, p) => sum + p.amount, 0);
-    const totalDebtRM = totalSalesValue - totalPaymentsReceived;
+function renderReport(period = 'all') {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(weekStart.getDate() - now.getDay()); // Anggap minggu mula Ahad
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const filterByDate = (item) => {
+        const itemDate = new Date(item.date || item.created_at);
+        if (period === 'day') return itemDate >= todayStart;
+        if (period === 'week') return itemDate >= weekStart;
+        if (period === 'month') return itemDate >= monthStart;
+        return true; // period 'all'
+    };
+
+    const filteredSales = ALL_SALES.filter(filterByDate);
+    const filteredExpenses = ALL_EXPENSES.filter(filterByDate);
+    const filteredPayrolls = ALL_PAYROLLS.filter(filterByDate);
+    const filteredPayments = ALL_PAYMENTS.filter(filterByDate);
+
+    const totalCostOfGoodsSold = rebuildInventoryAndGetCosts(filteredSales); 
+    
+    const totalOtherCost = filteredExpenses.reduce((s, x) => s + Number(x.amount || 0), 0);
+    const totalPayrollCost = filteredPayrolls.reduce((s, x) => s + Number(x.amount || 0), 0);
+    const totalSalesValue = filteredSales.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0);
+    
+    const totalDebtRM = ALL_SALES.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0) - ALL_PAYMENTS.reduce((sum, p) => sum + p.amount, 0);
+    
+    const totalPaymentsReceived = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+    
     const grossProfit = totalSalesValue - totalCostOfGoodsSold;
     const netProfit = grossProfit - totalOtherCost - totalPayrollCost;
+    
     const kpis = [
         ['Jumlah Jualan', totalSalesValue, true], ['Untung Bersih', netProfit, true],
-        ['Jumlah Hutang', totalDebtRM, true], ['Untung Kasar', grossProfit, true],
+        ['Jumlah Hutang (Semua)', totalDebtRM, true], ['Untung Kasar', grossProfit, true],
         ['Modal Gas Terpakai', totalCostOfGoodsSold, true], ['Modal Lain', totalOtherCost, true],
         ['Gaji Dibayar', totalPayrollCost, true], ['Bayaran Diterima', totalPaymentsReceived, true],
     ];
@@ -436,7 +461,6 @@ function setupUIListeners() {
         }
     });
 
-    // Event listeners untuk butang eksport CSV
     document.getElementById('exportSalesCsv').addEventListener('click', () => downloadCSV(`Jualan_${today()}.csv`, ALL_SALES, ['date', 'client_name', 'q14', 'paid14', 'q12', 'paid12', 'qi', 'paidI', 'price14', 'price12', 'priceI', 'payType']));
     document.getElementById('exportStocksCsv').addEventListener('click', () => downloadCSV(`Stok_${today()}.csv`, ALL_STOCKS, ['date', 'note', 'batch', 'q14', 'c14', 'q12', 'c12', 'qi', 'ci']));
     document.getElementById('exportExpensesCsv').addEventListener('click', () => {
@@ -444,7 +468,6 @@ function setupUIListeners() {
         downloadCSV(`Perbelanjaan_${today()}.csv`, allExpenses, ['date', 'jenis_rekod', 'name', 'type', 'amount', 'note']);
     });
     
-    // --> [BARU] Fungsi eksport untuk Pelanggan dan Bayaran
     function exportClientsCsv() {
         const dataToExport = ALL_CLIENTS.map(c => {
             const debt = computeClientDebt(c.name);
@@ -458,7 +481,6 @@ function setupUIListeners() {
     }
     document.getElementById('exportClientsCsv').addEventListener('click', exportClientsCsv);
     document.getElementById('exportPaymentsCsv').addEventListener('click', exportPaymentsCsv);
-    // <-- [BARU] Berakhir
 
     const slClientInput = document.getElementById('slClient');
     slClientInput.addEventListener('input', (e) => showClientResults(e.target.value, 'client-search-results', selectClient, ALL_CLIENTS));
@@ -495,6 +517,16 @@ function setupUIListeners() {
             document.getElementById('adminArea').style.display = 'block';
         } else { alert('PIN salah'); }
     });
+
+    document.getElementById('reportPeriodBtns').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const period = e.target.dataset.period;
+            document.querySelectorAll('#reportPeriodBtns button').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            renderReport(period);
+        }
+    });
+
     ['stDate', 'exDate', 'slDate', 'pgDate'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = today(); });
     const themeBtn = document.getElementById('themeBtn');
     const currentTheme = localStorage.getItem(THEME_KEY) || 'dark';

@@ -125,8 +125,10 @@
                     </details>
                 </form>
                 <div class="card">
-                    <h3>Sejarah Pembayaran Hutang</h3>
-                    <div class="table-wrap"><table id="payTable"><thead><tr><th>Tarikh</th><th>Pelanggan</th><th>Jumlah (RM)</th><th>Kaedah</th><th>Nota</th></tr></thead><tbody></tbody></table></div>
+                    <h3 class="record-title">Sejarah Pembayaran Hutang</h3>
+                    <div class="record-list">
+                        <div class="table-wrap"><table id="payTable"><thead><tr><th>Tarikh</th><th>Pelanggan</th><th>Jumlah (RM)</th><th>Kaedah</th><th>Nota</th></tr></thead><tbody></tbody></table></div>
+                    </div>
                 </div>
                 <form class="card" id="addPayrollForm">
                     <h3>Rekod Gaji Pekerja</h3>
@@ -141,7 +143,15 @@
                     </details>
                 </form>
                 <div class="card">
-                    <h3>Ringkasan & Laporan</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3>Ringkasan & Laporan</h3>
+                        <div id="reportPeriodBtns" style="display: flex; gap: 5px;">
+                            <button data-period="day" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Hari Ini</button>
+                            <button data-period="week" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Minggu Ini</button>
+                            <button data-period="month" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Bulan Ini</button>
+                            <button data-period="all" class="secondary active" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Semua</button>
+                        </div>
+                    </div>
                     <div id="reportKPI" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"></div>
                     <div class="divider"></div>
                     <label style="font-weight: 600; margin-bottom: 4px; display: block;">Eksport Data (CSV)</label>
