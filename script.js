@@ -9,29 +9,10 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const fmt = (n) => Number(n || 0).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
 const getPIN = () => localStorage.getItem('thc_admin_pin') || 'boss123';
-const setPIN = (v) => localStorage.getItem('thc_admin_pin', v);
+const setPIN = (v) => localStorage.setItem('thc_admin_pin', v);
 
 const THEME_KEY = 'thc_theme';
 const COUNTERS_KEY = 'thc_counters';
-
-// --- INVENTORI TONG GAS (BARU) ---
-const CYLINDER_INVENTORY_KEY = 'thc_cylinder_inv';
-let CYLINDER_INVENTORY = {
-    // Total owned cylinders (set by owner)
-    OWNED: { q14: 0, q12: 0, qi: 0 },
-    // Current stock status at Factory/Depot
-    FACTORY: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 },
-    // Current stock status on Truck/Lorry
-    TRUCK: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 },
-};
-
-function loadCylinderInventory() {
-    const data = JSON.parse(localStorage.getItem(CYLINDER_INVENTORY_KEY) || 'null');
-    if (data) CYLINDER_INVENTORY = data;
-}
-function saveCylinderInventory() {
-    localStorage.setItem(CYLINDER_INVENTORY_KEY, JSON.stringify(CYLINDER_INVENTORY));
-}
 
 // Cache data
 let ALL_STOCKS = [], ALL_SALES = [], ALL_EXPENSES = [], ALL_PAYROLLS = [], ALL_CLIENTS = [], ALL_PAYMENTS = [];
@@ -69,7 +50,6 @@ async function fetchAllData() {
     const { data: payments } = await supabaseClient.from('payments').select('*');
     ALL_STOCKS = stocks || []; ALL_SALES = sales || []; ALL_EXPENSES = expenses || [];
     ALL_PAYROLLS = payrolls || []; ALL_CLIENTS = clients || []; ALL_PAYMENTS = payments || [];
-    loadCylinderInventory(); // Muat Inventori Tong
 }
 
 function renderGrouped(hostId, items, renderItemFn) {
@@ -140,33 +120,6 @@ function renderPayroll() {
 // ==================
 // FUNGSI PENGIRAAN
 // ==================
-
-// --- FUNGSI BARU UNTUK INVENTORI TONG ---
-function recomputeCylinderKPIs() {
-    const { OWNED, FACTORY, TRUCK } = CYLINDER_INVENTORY;
-    const totalOwned = OWNED.q14 + OWNED.q12 + OWNED.qi;
-    const totalAtFactory = (FACTORY.full14 + FACTORY.empty14 + FACTORY.full12 + FACTORY.empty12 + FACTORY.fullI + FACTORY.emptyI);
-    const totalOnTruck = (TRUCK.full14 + TRUCK.empty14 + TRUCK.full12 + TRUCK.empty12 + TRUCK.fullI + TRUCK.emptyI);
-    // Tong Pelanggan (Anggapan: kosong sehingga dipulangkan/ditukar)
-    const totalCustomer = totalOwned - totalAtFactory - totalOnTruck;
-
-    const cylinderKPIs = [
-        { k: 'Total Tong Dimiliki', v: totalOwned, id: 'total-owned' },
-        { k: 'Tong Kilang (Berisi)', v: FACTORY.full14 + FACTORY.full12 + FACTORY.fullI, id: 'factory-full', isFull: true },
-        { k: 'Tong Kilang (Kosong)', v: FACTORY.empty14 + FACTORY.empty12 + FACTORY.emptyI, id: 'factory-empty' },
-        { k: 'Tong Lori (Berisi)', v: TRUCK.full14 + TRUCK.full12 + TRUCK.fullI, id: 'truck-full', isFull: true },
-        { k: 'Tong Lori (Kosong)', v: TRUCK.empty14 + TRUCK.empty12 + TRUCK.emptyI, id: 'truck-empty' },
-        { k: 'Tong Pelanggan (Angg.)', v: totalCustomer, id: 'customer-empty' },
-    ];
-    document.getElementById('cylinderSummaryBar').innerHTML = cylinderKPIs.map(x => 
-        `<div class="kpi" id="kpi-${x.id}" ${x.isFull ? 'style="background: var(--ok); color: black;"' : ''}>
-            <h4>${x.k}</h4>
-            <div class="v">${(x.v || 0).toLocaleString()}</div>
-        </div>`
-    ).join('');
-}
-
-
 function computeClientDebt(clientName) {
     const clientSales = ALL_SALES.filter(s => s.client_name === clientName);
     const clientPayments = ALL_PAYMENTS.filter(p => p.client_name === clientName);
@@ -221,31 +174,12 @@ function rebuildInventoryAndGetCosts(salesToProcess = null) {
 function recomputeSummary() {
     const totalIn = (key) => ALL_STOCKS.reduce((sum, s) => sum + (s[key] || 0), 0);
     const totalSold = (key) => ALL_SALES.reduce((sum, s) => sum + (s[key] || 0), 0);
-    
-    // Kira Baki Stok Gas (untuk tujuan kewangan, dari rekod stok masuk)
-    const gasBaki14 = totalIn('q14') - totalSold('q14');
-    const gasBaki12 = totalIn('q12') - totalSold('q12');
-    const gasBakiI = totalIn('qi') - totalSold('qi');
-    
-    // Panggil fungsi baru untuk kemaskini KPI Tong Fizikal
-    recomputeCylinderKPIs(); 
-
+    const latestStock = [...ALL_STOCKS].sort((a,b) => new Date(b.date) - new Date(a.date) || b.batch - a.batch)[0] || {q12:0, q14:0, qi:0};
     const kp = [
-        // Tong Berisi di Kilang (Paling Penting untuk Operasi)
-        { k: 'Tong Berisi (Kilang)', v: CYLINDER_INVENTORY.FACTORY.full14 + CYLINDER_INVENTORY.FACTORY.full12 + CYLINDER_INVENTORY.FACTORY.fullI, id: 'factory-full-summary' }, 
-        
-        // Baki Stok Gas (dari rekod stok masuk/keluar)
-        { k: 'Baki Stok Gas 14KG', v: gasBaki14 }, 
-        { k: 'Baki Stok Gas 12KG', v: gasBaki12 }, 
-        { k: 'Baki Stok Gas Industri', v: gasBakiI },
-        
-        // Rekod Terjual
-        { k: 'Terjual 14KG', v: totalSold('q14') - (COUNTERS.soldAtReset.q14 || 0) }, 
-        { k: 'Terjual 12KG', v: totalSold('q12') - (COUNTERS.soldAtReset.q12 || 0) }, 
-        { k: 'Terjual Industri', v: totalSold('qi') - (COUNTERS.soldAtReset.qi || 0) },
+        { k: 'Stok Terkini 14KG', v: latestStock.q14 }, { k: 'Stok Terkini 12KG', v: latestStock.q12 }, { k: 'Stok Terkini Industri', v: latestStock.qi },
+        { k: 'Baki 14KG', v: totalIn('q14') - totalSold('q14') }, { k: 'Baki 12KG', v: totalIn('q12') - totalSold('q12') }, { k: 'Baki Industri', v: totalIn('qi') - totalSold('qi') },
+        { k: 'Terjual 14KG', v: totalSold('q14') - (COUNTERS.soldAtReset.q14 || 0) }, { k: 'Terjual 12KG', v: totalSold('q12') - (COUNTERS.soldAtReset.q12 || 0) }, { k: 'Terjual Industri', v: totalSold('qi') - (COUNTERS.soldAtReset.qi || 0) },
     ];
-    
-    // Paparkan KPI ke summaryBar
     document.getElementById('summaryBar').innerHTML = kp.map(x => `<div class="kpi"><h4>${x.k}</h4><div class="v">${(x.v || 0).toLocaleString()}</div></div>`).join('');
 }
 
@@ -341,7 +275,6 @@ async function delClient(id) {
         }
     }
 }
-// --- KEMASKINI FUNGSI addSale untuk kemaskini CYLINDER_INVENTORY ---
 async function addSale() {
     const form = document.getElementById('addSaleForm');
     const clientName = form.querySelector('#slClient').value;
@@ -358,47 +291,12 @@ async function addSale() {
     };
     if (newSale.q12 + newSale.q14 + newSale.qi <= 0) { alert('Sila masukkan sekurang-kurangnya satu tong.'); return; }
     if (newSale.paid14 > newSale.q14 || newSale.paid12 > newSale.q12 || newSale.paidI > newSale.qi) { alert('Tong dibayar tidak boleh melebihi total tong.'); return; }
-    
     const paidAmount = ((newSale.paid12||0) * newSale.price12) + ((newSale.paid14||0) * newSale.price14) + ((newSale.paidI||0) * newSale.priceI);
     if (paidAmount > 0) {
         await supabaseClient.from('payments').insert([{ date: newSale.date, client_name: newSale.client_name, amount: paidAmount, method: newSale.payType, note: `Bayaran semasa jualan. ${newSale.remark}`.trim() }]);
     }
-    
-    const { error: saleError } = await supabaseClient.from('sales').insert([newSale]);
-
-    let cylinderWarning = '';
-    
-    // --- KEMASKINI INVENTORI TONG ---
-    const q14 = newSale.q14;
-    const q12 = newSale.q12;
-    const qi = newSale.qi;
-    
-    // Asumsi: Jualan = pertukaran. Lori beri tong berisi, ambil tong kosong.
-    
-    if (CYLINDER_INVENTORY.TRUCK.full14 < q14 || CYLINDER_INVENTORY.TRUCK.full12 < q12 || CYLINDER_INVENTORY.TRUCK.fullI < qi) {
-        cylinderWarning = 'AMARAN: Stok Tong Berisi di Lori tidak mencukupi! Rekod jualan telah dibuat, tetapi inventori tong tidak dikemaskini secara penuh. Sila semak semula pergerakan tong.';
-    } else {
-        // 1. Kurangkan Tong Berisi di Lori (dijual)
-        CYLINDER_INVENTORY.TRUCK.full14 -= q14;
-        CYLINDER_INVENTORY.TRUCK.full12 -= q12;
-        CYLINDER_INVENTORY.TRUCK.fullI -= qi;
-        
-        // 2. Tambah Tong Kosong di Lori (diambil dari pelanggan)
-        CYLINDER_INVENTORY.TRUCK.empty14 += q14;
-        CYLINDER_INVENTORY.TRUCK.empty12 += q12;
-        CYLINDER_INVENTORY.TRUCK.emptyI += qi;
-
-        saveCylinderInventory();
-        recomputeCylinderKPIs();
-    }
-
+    await supabaseClient.from('sales').insert([newSale]);
     form.reset(); form.querySelector('#slDate').value = today(); calcSale();
-    if (saleError) { 
-        alert('Gagal menambah jualan.'); 
-        console.error(saleError); 
-    } else if (cylinderWarning) {
-        alert(cylinderWarning);
-    }
 }
 async function delSale(id) {
     if (confirm('Anda pasti mahu padam rekod jualan ini?')) {
@@ -440,11 +338,6 @@ async function deleteAllData() {
         await supabaseClient.from('stocks').delete().gt('id', -1); await supabaseClient.from('sales').delete().gt('id', -1);
         await supabaseClient.from('expenses').delete().gt('id', -1); await supabaseClient.from('payrolls').delete().gt('id', -1);
         await supabaseClient.from('payments').delete().gt('id', -1); await supabaseClient.from('clients').delete().gt('id', -1);
-        
-        // Reset Cylinder Inventory
-        CYLINDER_INVENTORY = { OWNED: { q14: 0, q12: 0, qi: 0 }, FACTORY: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 }, TRUCK: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 } };
-        saveCylinderInventory();
-        
         alert('Semua data telah berjaya dipadam.');
     } catch (error) { alert('Gagal memadam semua data.'); }
 }
@@ -513,90 +406,6 @@ function resetReportView() {
 }
 
 // ==================
-// FUNGSI INVENTORI TONG
-// ==================
-
-function setCylinderOwnership() {
-    const q14 = +document.getElementById('ownQ14').value || 0;
-    const q12 = +document.getElementById('ownQ12').value || 0;
-    const qi = +document.getElementById('ownQI').value || 0;
-    const total = q14 + q12 + qi;
-
-    if (total <= 0) { alert('Jumlah tong dimiliki mesti lebih dari 0.'); return; }
-    
-    if (!confirm(`Anda pasti mahu menetapkan total tong dimiliki kepada ${total} (${q14}/${q12}/${qi})? Ini hanya menetapkan total dan tidak mengemas kini lokasi/status sedia ada.`)) return;
-
-    CYLINDER_INVENTORY.OWNED = { q14, q12, qi };
-    saveCylinderInventory();
-    recomputeCylinderKPIs();
-    alert(`Total Tong Dimiliki telah ditetapkan kepada ${total}.`);
-}
-
-function handleCylinderMovement() {
-    const type = document.getElementById('moveType').value;
-    const size = document.getElementById('moveSize').value;
-    const qty = +document.getElementById('moveQty').value || 0;
-    if (qty <= 0) { alert('Kuantiti mesti lebih dari 0.'); return; }
-
-    const sizeKey = size.toLowerCase(); 
-    const fullKey = `full${sizeKey.slice(1)}`; 
-    const emptyKey = `empty${sizeKey.slice(1)}`; 
-
-    let error = '';
-
-    // 1. Lori Ambil Tong Berisi (Kilang -> Lori)
-    if (type === 'load_full') {
-        if (CYLINDER_INVENTORY.FACTORY[fullKey] < qty) { error = `Tong Berisi di Kilang tidak mencukupi. Baki: ${CYLINDER_INVENTORY.FACTORY[fullKey]}`; }
-        else { CYLINDER_INVENTORY.FACTORY[fullKey] -= qty; CYLINDER_INVENTORY.TRUCK[fullKey] += qty; }
-    }
-    // 2. Lori Hantar Tong Kosong (Lori -> Kilang)
-    else if (type === 'unload_empty') {
-        if (CYLINDER_INVENTORY.TRUCK[emptyKey] < qty) { error = `Tong Kosong di Lori tidak mencukupi. Baki: ${CYLINDER_INVENTORY.TRUCK[emptyKey]}`; }
-        else { CYLINDER_INVENTORY.TRUCK[emptyKey] -= qty; CYLINDER_INVENTORY.FACTORY[emptyKey] += qty; }
-    }
-    // 3. Lori Ambil Tong Kosong (Kilang -> Lori - jarang, untuk start trip)
-    else if (type === 'load_empty') {
-        if (CYLINDER_INVENTORY.FACTORY[emptyKey] < qty) { error = `Tong Kosong di Kilang tidak mencukupi. Baki: ${CYLINDER_INVENTORY.FACTORY[emptyKey]}`; }
-        else { CYLINDER_INVENTORY.FACTORY[emptyKey] -= qty; CYLINDER_INVENTORY.TRUCK[emptyKey] += qty; }
-    }
-    // 4. Lori Hantar Tong Berisi (Lori -> Kilang - jarang, silap ambil)
-    else if (type === 'unload_full') {
-        if (CYLINDER_INVENTORY.TRUCK[fullKey] < qty) { error = `Tong Berisi di Lori tidak mencukupi. Baki: ${CYLINDER_INVENTORY.TRUCK[fullKey]}`; }
-        else { CYLINDER_INVENTORY.TRUCK[fullKey] -= qty; CYLINDER_INVENTORY.FACTORY[fullKey] += qty; }
-    }
-
-    if (error) { alert(`Gagal: ${error}`); }
-    else { 
-        saveCylinderInventory(); 
-        recomputeCylinderKPIs();
-        document.getElementById('cylinderMoveForm').reset();
-        alert(`Pergerakan ${qty}x ${size} Berjaya direkodkan.`);
-    }
-}
-
-function handleCylinderFilling() {
-    const size = document.getElementById('fillSize').value;
-    const qty = +document.getElementById('fillQty').value || 0;
-    if (qty <= 0) { alert('Kuantiti mesti lebih dari 0.'); return; }
-
-    const sizeKey = size.toLowerCase();
-    const fullKey = `full${sizeKey.slice(1)}`;
-    const emptyKey = `empty${sizeKey.slice(1)}`;
-
-    if (CYLINDER_INVENTORY.FACTORY[emptyKey] < qty) {
-        alert(`Gagal: Tong Kosong di Kilang tidak mencukupi untuk diisi. Baki: ${CYLINDER_INVENTORY.FACTORY[emptyKey]}`);
-    } else {
-        CYLINDER_INVENTORY.FACTORY[emptyKey] -= qty;
-        CYLINDER_INVENTORY.FACTORY[fullKey] += qty;
-        saveCylinderInventory();
-        recomputeCylinderKPIs();
-        document.getElementById('cylinderFillForm').reset();
-        alert(`${qty}x ${size} telah Berjaya diisi (Kosong -> Berisi) di Kilang.`);
-    }
-}
-
-
-// ==================
 // FUNGSI CARIAN KHAS
 // ==================
 function showClientResults(filter = '', resultsId, onSelect, clientList) {
@@ -650,12 +459,6 @@ function setupUIListeners() {
     document.getElementById('addSale').addEventListener('click', addSale);
     document.getElementById('btnPayDebt').addEventListener('click', addDebtPayment);
     document.getElementById('addPayroll').addEventListener('click', addPayroll);
-    
-    // --- LISTENER BARU UNTUK INVENTORI TONG ---
-    document.getElementById('btnSetOwned').addEventListener('click', setCylinderOwnership);
-    document.getElementById('btnMoveCylinder').addEventListener('click', handleCylinderMovement);
-    document.getElementById('btnFillCylinder').addEventListener('click', handleCylinderFilling);
-    
     document.getElementById('savePIN').addEventListener('click', () => {
         const newPin = document.getElementById('setPIN').value;
         if (newPin) { setPIN(newPin); alert('PIN baru telah disimpan.'); }
@@ -666,9 +469,6 @@ function setupUIListeners() {
         if(prompt('AWAS! Ini akan memadam semua Jualan dan Bayaran. Taip "PADAM JUALAN" untuk sahkan.') === 'PADAM JUALAN') {
             await supabaseClient.from('sales').delete().gt('id', -1);
             await supabaseClient.from('payments').delete().gt('id', -1);
-            // Jualan/Bayaran dipadam, Tong Kosong lori perlu dikosongkan (dianggap semua sudah dihantar balik)
-            CYLINDER_INVENTORY.TRUCK = { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 };
-            saveCylinderInventory();
         }
     });
      document.getElementById('resetCounterBtn').addEventListener('click', () => {
@@ -789,8 +589,8 @@ function listenToDatabaseChanges() {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadCounters();
-    loadCylinderInventory(); // Pastikan inventori tong dimuatkan
     setupUIListeners();
     renderAll();
     listenToDatabaseChanges();
 });
+
