@@ -138,35 +138,22 @@
                     <div class="form-group"><label for="pgNote">Nota</label><input id="pgNote"></div>
                     <button type="button" id="addPayroll">Tambah Gaji</button>
                     <details style="margin-top: 20px;">
-                        <summary style="font-weight: 500; cursor:pointer;">Lihat Sejarah Gaji</summary>
-                        <div class="table-wrap" style="margin-top: 10px;"><table id="payrollTable"><thead><tr><th>Tarikh</th><th>Nama</th><th>Jumlah</th><th>Nota</th><th>Aksi</th></tr></thead><tbody></tbody></table></div>
+                        <summary style="font-weight: 500; cursor:pointer;">Lihat Rekod Gaji</summary>
+                        <div class="table-wrap" style="margin-top: 10px;"><table id="payrollTable"><thead><tr><th>Tarikh</th><th>Nama</th><th>Jumlah (RM)</th><th>Nota</th><th>Aksi</th></tr></thead><tbody></tbody></table></div>
                     </details>
                 </form>
-                <div class="card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <h3>Ringkasan & Laporan</h3>
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <div id="reportPeriodBtns" style="display: flex; gap: 5px;">
-                                <button data-period="day" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Hari Ini</button>
-                                <button data-period="week" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Minggu Ini</button>
-                                <button data-period="month" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Bulan Ini</button>
-                                <button data-period="all" class="secondary active" style="padding: 5px 10px; font-size: 0.8rem; width: auto;">Semua</button>
-                            </div>
-                            <button id="resetReportBtn" class="secondary" style="padding: 5px 10px; font-size: 0.8rem; width: auto; margin-left: 10px; border-color: var(--warn); color: var(--warn);">Reset</button>
-                        </div>
-                    </div>
-                    <div id="reportKPI" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"></div>
-                    <div class="divider"></div>
-                    <label style="font-weight: 600; margin-bottom: 4px; display: block;">Eksport Data (CSV)</label>
-                    <p class="note">Simpan salinan data anda untuk rekod atau analisa di luar sistem.</p>
-                    <div class="btn-row" style="margin-top: 10px; display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <button type="button" id="exportSalesCsv" class="secondary">Jualan</button>
-                        <button type="button" id="exportStocksCsv" class="secondary">Stok</button>
-                        <button type="button" id="exportExpensesCsv" class="secondary">Belanja</button>
-                        <button type="button" id="exportClientsCsv" class="secondary">Pelanggan</button>
-                        <button type="button" id="exportPaymentsCsv" class="secondary">Bayaran</button>
-                    </div>
-                </div>
+
+                <!-- BORANG BARU: TOTAL FIZIKAL TONG -->
+                <form class="card" id="physicalForm">
+                    <h3>Admin: Total Fizikal Tong</h3>
+                    <p class="note">Jumlah tong milik anda (isi + kosong) ikut saiz. Jika pelanggan beli sekali dengan tong, tolak di sini.</p>
+                    <div class="form-group"><label for="pf14">14KG</label><input type="number" id="pf14" min="0" value="0"></div>
+                    <div class="form-group"><label for="pf12">12KG</label><input type="number" id="pf12" min="0" value="0"></div>
+                    <div class="form-group"><label for="pfi">Industri</label><input type="number" id="pfi" min="0" value="0"></div>
+                    <button type="button" id="savePhysicalBtn">Simpan</button>
+                    <p class="note" id="pfMsg"></p>
+                </form>
+
                 <div class="card">
                     <h3>Tetapan & Data</h3>
                     <div class="form-group">
@@ -181,31 +168,43 @@
                     <p class="note">Hanya reset kiraan pada kad "Sold" di laman utama kepada 0. Data jualan tidak akan dipadam.</p>
                     <button type="button" id="resetCounterBtn" class="secondary" style="margin-top: 8px;">Reset Kiraan "Sold" Sahaja</button>
                     <div class="divider"></div>
-                    <label style="font-weight: 600; color: var(--danger);">Zon Bahaya</label>
-                    <p class="note">Tindakan di bawah akan memadam data secara kekal dan tidak boleh diundur.</p>
-                    <button type="button" id="resetAllSalesBtn" class="danger" style="margin-top: 8px;">Padam Semua Data Jualan</button>
-                    <button type="button" id="deleteAllDataBtn" class="danger" style="margin-top: 8px;">PADAM SEMUA DATA SISTEM</button>
+                    <label style="font-weight: 600; color: var(--danger);">Reset Semua Data</label>
+                    <p class="note">Gunakan dengan berhati-hati. Semua rekod akan dipadam.</p>
+                    <button type="button" id="resetAllBtn" class="danger" style="margin-top: 8px;">Reset Semua Data</button>
+                    <div class="divider"></div>
+                    <label style="font-weight: 600;">Eksport Data</label>
+                    <p class="note">Simpan CSV untuk backup.</p>
+                    <div class="btn-row" style="margin-top: 10px; display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" id="exportSalesCsv" class="secondary">Jualan</button>
+                        <button type="button" id="exportStocksCsv" class="secondary">Stok</button>
+                        <button type="button" id="exportExpensesCsv" class="secondary">Belanja</button>
+                        <button type="button" id="exportClientsCsv" class="secondary">Pelanggan</button>
+                        <button type="button" id="exportPaymentsCsv" class="secondary">Bayaran</button>
+                    </div>
                 </div>
             </div>
         </section>
     </main>
 
     <nav class="bottom-nav">
-        <button class="nav-btn active" data-view="stok">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9"/><path d="M9 22V12h6v10"/><path d="M2 10.6L12 2l10 8.6"/></svg>
+        <button class="nav-btn active" data-target="view-stok">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M5 7h4"></path><path d="M15 7h4"></path><path d="M5 15h4"></path><path d="M15 15h4"></path></svg>
             <span>Stok</span>
         </button>
-        <button class="nav-btn" data-view="jualan">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        <button class="nav-btn" data-target="view-jualan">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2 2h3l1 7h13l1-5H6"></path></svg>
             <span>Jualan</span>
         </button>
-        <button class="nav-btn" data-view="admin">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        <button class="nav-btn" data-target="view-admin">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M6 22v-2a4 4 0 0 1 4-4h0"></path><path d="M14 16h0a4 4 0 0 1 4 4v2"></path></svg>
             <span>Admin</span>
         </button>
     </nav>
-    <div class="print-container"></div>
+
+    <div class="print-container">
+        <div id="receipt"></div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
-
