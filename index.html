@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>Tanjung Homemade Creative — Gas Biz</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivrne t/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <header class="app-header">
@@ -29,16 +29,34 @@
             
             <!-- KAD BARU: URUSAN TONG GAS -->
             <div class="card" id="cylinderManagementCard">
-                <h3>Urusan Tong Gas (Fizikal)</h3>
-                <p class="note">Monitor Tong Berisi, Tong Kosong, dan Pergerakan antara **Store** dan Lori.</p>
+                <h3>Urusan Tong Gas (Fizikal) <span style="font-size: 0.9em; color: var(--ok); margin-left: 5px;">(Stock Tally)</span></h3>
+                <p class="note">Monitor Tong Berisi, Tong Kosong, dan Pergerakan antara **Store** dan Lori. <br>Ini memastikan semua 180 tong anda sentiasa dapat dijejaki.</p>
+
+                <!-- KAD STATUS INVENTORI DETAIL BARU -->
+                <div id="cylinderInventoryStatus" style="margin-top: 15px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2);">
+                    <!-- Content populated by renderCylinderInventoryStatus() -->
+                    Memuatkan status inventori...
+                </div>
+
+                <!-- KAD SIMULASI BARU - Diletakkan lebih atas -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+                    <details>
+                        <summary style="font-weight: 500; cursor:pointer; color: var(--primary);">Simulator Operasi Tong (Demo 5 Langkah Anda)</summary>
+                        <div class="card" style="border: 2px solid var(--primary); background: color-mix(in srgb, var(--primary), var(--surface) 85%); margin-top: 10px; padding: 12px;">
+                            <p class="note" style="color: var(--text-primary); margin-bottom: 10px;">Tekan butang di bawah untuk menjalankan simulasi 5 langkah yang anda berikan. Ini menunjukkan bagaimana sistem mengemas kini status tong secara automatik. **(Inventori semasa akan ditimpa).**</p>
+                            <button type="button" id="btnSimulateScenario" class="primary" style="background: var(--primary);">Jalankan Simulasi (5 Langkah)</button>
+                            <div id="simulationResult" class="note" style="background: var(--surface); padding: 10px; border-radius: 8px; margin-top: 12px; display: none; color: var(--text-primary);"></div>
+                        </div>
+                    </details>
+                </div>
 
                 <details style="margin-top: 10px;">
-                    <summary style="font-weight: 500; cursor:pointer;">1. Tetapkan Total Tong Dimiliki</summary>
+                    <summary style="font-weight: 500; cursor:pointer;">1. Tetapkan Total Tong Dimiliki & Status Awal</summary>
                     <form style="padding: 10px 0;">
                         <div class="form-group"><label for="ownQ14">Total 14KG</label><input type="number" id="ownQ14" min="0" value="60"></div>
                         <div class="form-group"><label for="ownQ12">Total 12KG</label><input type="number" id="ownQ12" min="0" value="60"></div>
                         <div class="form-group"><label for="ownQI">Total Industri</label><input type="number" id="ownQI" min="0" value="60"></div>
-                        <button type="button" id="btnSetOwned" class="secondary" style="background: var(--chip-1); color: white;">Tetapkan Total (180)</button>
+                        <button type="button" id="btnSetOwned" class="secondary" style="background: var(--chip-1); color: white;">Tetapkan Total (180) & Status Awal Store</button>
                     </form>
                 </details>
 
@@ -48,10 +66,10 @@
                         <div class="form-group">
                             <label for="moveType">Jenis Pergerakan</label>
                             <select id="moveType">
-                                <option value="load_full">Lori Ambil Tong Berisi (Store -> Lori)</option>
-                                <option value="unload_empty">Lori Hantar Tong Kosong (Lori -> Store)</option>
-                                <option value="load_empty">Lori Ambil Tong Kosong (Store -> Lori)</option>
-                                <option value="unload_full">Lori Hantar Tong Berisi (Lori -> Store)</option>
+                                <option value="load_full">Lori Ambil Tong Berisi (Store $\to$ Lori)</option>
+                                <option value="unload_empty">Lori Hantar Tong Kosong (Lori $\to$ Store)</option>
+                                <option="load_empty">Lori Ambil Tong Kosong (Store $\to$ Lori)</option>
+                                <option="unload_full">Lori Hantar Tong Berisi (Lori $\to$ Store)</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -66,7 +84,7 @@
                 <details style="margin-top: 10px;">
                     <summary style="font-weight: 500; cursor:pointer;">3. Proses Pengisian (Kosong $\to$ Berisi)</summary>
                     <form id="cylinderFillForm" style="padding: 10px 0;">
-                        <p class="note" style="margin-bottom: 10px;">Rekod tong yang telah diisi gas di **Store** (setelah balik dari Kilang Ah Seng).</p>
+                        <p class="note" style="margin-bottom: 10px;">Rekod tong yang telah diisi gas di **Store** (setelah balik dari Kilang A).</p>
                         <div class="form-group">
                             <label for="fillSize">Saiz Tong</label>
                             <select id="fillSize"><option value="Q14">14KG</option><option value="Q12">12KG</option><option value="QI">Industri</option></select>
@@ -110,6 +128,7 @@
         <section id="view-jualan" class="view">
              <form class="card" id="addSaleForm">
                 <h3>Rekod Jualan Baru</h3>
+                <p class="note" style="color: var(--danger); font-weight: 500;">Perhatian: Jualan akan mengurangkan Tong Berisi di LORI dan menambah Tong Kosong di LORI.</p>
                 <div class="form-group"><label for="slDate">Tarikh</label><input type="date" id="slDate"></div>
                 <div class="form-group">
                     <label for="slClient">Pelanggan</label>
@@ -167,14 +186,7 @@
                 <p class="note">PIN Lalai: <b>boss123</b>.</p>
             </div>
             <div id="adminArea" style="display: none;">
-                <!-- KAD SIMULASI BARU -->
-                <div class="card" style="border: 2px solid var(--primary);">
-                    <h3>Simulator Operasi Tong (Demo)</h3>
-                    <p class="note">Tekan butang di bawah untuk menjalankan simulasi 5 langkah yang anda berikan. Inventori akan dikemas kini mengikut hasil akhir.</p>
-                    <button type="button" id="btnSimulateScenario" class="primary" style="background: var(--primary); margin-top: 10px;">Jalankan Simulasi (5 Langkah)</button>
-                    <div id="simulationResult" class="note" style="background: var(--surface-2); padding: 10px; border-radius: 8px; margin-top: 12px; display: none;"></div>
-                </div>
-                <!-- AKHIR KAD SIMULASI BARU -->
+                <!-- KAD SIMULASI BARU telah dipindahkan ke Stok View -->
 
                 <form class="card" id="addClientForm">
                     <h3>Urus Pelanggan</h3>

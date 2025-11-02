@@ -58,6 +58,7 @@ async function renderAll() {
             recomputeSummary(), renderReport()
         ]);
         calcSale();
+        renderCylinderInventoryStatus(); // Panggilan baru untuk paparan status detail
     } catch (error) {
         console.error("Gagal memuatkan data penuh:", error);
     } finally {
@@ -167,7 +168,7 @@ function recomputeCylinderKPIs() {
     const totalCustomer = totalOwned - totalAtStore - totalOnTruck;
 
     const cylinderKPIs = [
-        { k: 'Total Tong Dimiliki', v: totalOwned, id: 'total-owned' },
+        { k: 'Total Tong Dimiliki', v: totalOwned, id: 'total-owned', isOwned: true },
         { k: 'Tong Store (Berisi)', v: STORE.full14 + STORE.full12 + STORE.fullI, id: 'store-full', isFull: true },
         { k: 'Tong Store (Kosong)', v: STORE.empty14 + STORE.empty12 + STORE.emptyI, id: 'store-empty' },
         { k: 'Tong Lori (Berisi)', v: TRUCK.full14 + TRUCK.full12 + TRUCK.fullI, id: 'truck-full', isFull: true },
@@ -175,13 +176,37 @@ function recomputeCylinderKPIs() {
         { k: 'Tong Pelanggan (Angg.)', v: totalCustomer, id: 'customer-empty' },
     ];
     document.getElementById('cylinderSummaryBar').innerHTML = cylinderKPIs.map(x => 
-        `<div class="kpi" id="kpi-${x.id}" ${x.isFull ? 'style="background: var(--ok); color: black;"' : ''}>
+        `<div class="kpi" id="kpi-${x.id}" ${x.isFull ? 'style="background: var(--ok); color: black;"' : x.isOwned ? 'style="background: var(--chip-1); color: white;"' : ''}>
             <h4>${x.k}</h4>
             <div class="v">${(x.v || 0).toLocaleString()}</div>
         </div>`
     ).join('');
 }
 
+// Fungsi BARU untuk memaparkan status inventori tong secara detail dalam jadual
+function renderCylinderInventoryStatus() {
+    const { OWNED, STORE, TRUCK } = CYLINDER_INVENTORY;
+    const host = document.getElementById('cylinderInventoryStatus');
+
+    host.innerHTML = `
+        <div style="margin-bottom: 12px; font-weight: 600;">
+            Total Tong Dimiliki: ${OWNED.q14 + OWNED.q12 + OWNED.qi}
+        </div>
+        <div class="inventory-table-container">
+            <table>
+                <thead>
+                    <tr><th>Saiz</th><th>Store (Berisi)</th><th>Store (Kosong)</th><th>Lori (Berisi)</th><th>Lori (Kosong)</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>14KG</td><td class="full-cell">${STORE.full14}</td><td class="empty-cell">${STORE.empty14}</td><td class="full-cell">${TRUCK.full14}</td><td class="empty-cell">${TRUCK.empty14}</td></tr>
+                    <tr><td>12KG</td><td class="full-cell">${STORE.full12}</td><td class="empty-cell">${STORE.empty12}</td><td class="full-cell">${TRUCK.full12}</td><td class="empty-cell">${TRUCK.empty12}</td></tr>
+                    <tr><td>Industri</td><td class="full-cell">${STORE.fullI}</td><td class="empty-cell">${STORE.emptyI}</td><td class="full-cell">${TRUCK.fullI}</td><td class="empty-cell">${TRUCK.emptyI}</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="note" style="margin-top: 10px;">Tong Pelanggan (Anggapan): ${(OWNED.q14 + OWNED.q12 + OWNED.qi) - (STORE.full14 + STORE.empty14 + STORE.full12 + STORE.empty12 + STORE.fullI + STORE.emptyI + TRUCK.full14 + TRUCK.empty14 + TRUCK.full12 + TRUCK.empty12 + TRUCK.fullI + TRUCK.emptyI)}</p>
+    `;
+}
 
 function computeClientDebt(clientName) {
     const clientSales = ALL_SALES.filter(s => s.client_name === clientName);
@@ -320,7 +345,7 @@ async function addStock() {
     try {
         const form = document.getElementById('addStockForm');
         const newStock = { date: form.querySelector('#stDate').value || today(), note: form.querySelector('#stNote').value, q14: +form.querySelector('#stQ14').value || 0, c14: +form.querySelector('#stC14').value || 0, q12: +form.querySelector('#stQ12').value || 0, c12: +form.querySelector('#stC12').value || 0, qi: +form.querySelector('#stQI').value || 0, ci: +form.querySelector('#stCI').value || 0, batch: Date.now() };
-        if (!newStock.note) { alert('Nota wajib diisi.'); return; }
+        if (!newStock.note) { /* Menggantikan alert */ console.error('Nota wajib diisi.'); return; }
         await supabaseClient.from('stocks').insert([newStock]);
         form.reset(); form.querySelector('#stDate').value = today();
     } finally {
@@ -332,7 +357,7 @@ async function delStock(id) {
         document.body.style.cursor = 'wait';
         try {
             const { error } = await supabaseClient.from('stocks').delete().eq('id', id);
-            if (error) { alert('Gagal memadam.'); console.error(error); }
+            if (error) { /* Menggantikan alert */ console.error('Gagal memadam:', error); }
         } finally {
             document.body.style.cursor = 'default';
         }
@@ -343,7 +368,7 @@ async function addExpense() {
     try {
         const form = document.getElementById('addExpenseForm');
         const newExpense = { date: form.querySelector('#exDate').value || today(), type: form.querySelector('#exType').value, amount: +form.querySelector('#exAmt').value || 0, note: form.querySelector('#exNote').value };
-        if (newExpense.amount <= 0) { alert('Sila masukkan jumlah.'); return; }
+        if (newExpense.amount <= 0) { /* Menggantikan alert */ console.error('Sila masukkan jumlah.'); return; }
         await supabaseClient.from('expenses').insert([newExpense]);
         form.reset(); form.querySelector('#exDate').value = today();
     } finally {
@@ -355,7 +380,7 @@ async function delExpense(id) {
         document.body.style.cursor = 'wait';
         try {
             const { error } = await supabaseClient.from('expenses').delete().eq('id', id);
-            if (error) { alert('Gagal memadam.'); console.error(error); }
+            if (error) { /* Menggantikan alert */ console.error('Gagal memadam:', error); }
         } finally {
             document.body.style.cursor = 'default';
         }
@@ -366,7 +391,7 @@ async function addClient() {
     try {
         const form = document.getElementById('addClientForm');
         const newClient = { name: form.querySelector('#clName').value, cat: form.querySelector('#clCat').value, p14: +form.querySelector('#clP14').value || 0, p12: +form.querySelector('#clP12').value || 0, pi: +form.querySelector('#clPI').value || 0 };
-        if (!newClient.name) { alert('Nama pelanggan wajib diisi.'); return; }
+        if (!newClient.name) { /* Menggantikan alert */ console.error('Nama pelanggan wajib diisi.'); return; }
         await supabaseClient.from('clients').insert([newClient]);
         form.reset();
     } finally {
@@ -379,8 +404,7 @@ async function delClient(id) {
         try {
             const { error } = await supabaseClient.from('clients').delete().eq('id', id);
             if (error) { 
-                alert('Gagal memadam pelanggan. Pastikan tiada jualan atau bayaran yang terikat dengan pelanggan ini.'); 
-                console.error(error);
+                /* Menggantikan alert */ console.error('Gagal memadam pelanggan. Pastikan tiada jualan atau bayaran yang terikat dengan pelanggan ini.'); 
             }
         } finally {
             document.body.style.cursor = 'default';
@@ -393,9 +417,9 @@ async function addSale() {
     try {
         const form = document.getElementById('addSaleForm');
         const clientName = form.querySelector('#slClient').value;
-        if (!clientName) { alert('Sila pilih pelanggan.'); return; }
+        if (!clientName) { /* Menggantikan alert */ console.error('Sila pilih pelanggan.'); return; }
         const clientData = ALL_CLIENTS.find(c => c.name === clientName);
-        if (!clientData) { alert('Pelanggan tidak ditemui.'); return; }
+        if (!clientData) { /* Menggantikan alert */ console.error('Pelanggan tidak ditemui.'); return; }
         const newSale = {
             date: form.querySelector('#slDate').value || today(), client_name: clientName,
             q14: +form.querySelector('#slQ14').value || 0, paid14: +form.querySelector('#slPaid14').value || 0,
@@ -404,8 +428,8 @@ async function addSale() {
             price14: clientData.p14, price12: clientData.p12, priceI: clientData.pi,
             payType: form.querySelector('#slPayType').value, remark: form.querySelector('#slRemark').value
         };
-        if (newSale.q12 + newSale.q14 + newSale.qi <= 0) { alert('Sila masukkan sekurang-kurangnya satu tong.'); return; }
-        if (newSale.paid14 > newSale.q14 || newSale.paid12 > newSale.q12 || newSale.paidI > newSale.qi) { alert('Tong dibayar tidak boleh melebihi total tong.'); return; }
+        if (newSale.q12 + newSale.q14 + newSale.qi <= 0) { /* Menggantikan alert */ console.error('Sila masukkan sekurang-kurangnya satu tong.'); return; }
+        if (newSale.paid14 > newSale.q14 || newSale.paid12 > newSale.q12 || newSale.paidI > newSale.qi) { /* Menggantikan alert */ console.error('Tong dibayar tidak boleh melebihi total tong.'); return; }
         
         const paidAmount = ((newSale.paid12||0) * newSale.price12) + ((newSale.paid14||0) * newSale.price14) + ((newSale.paidI||0) * newSale.priceI);
         if (paidAmount > 0) {
@@ -422,9 +446,11 @@ async function addSale() {
         const qi = newSale.qi;
         
         // Asumsi: Jualan = pertukaran. Lori beri tong berisi, ambil tong kosong.
+        // PENTING: Perlu semak jika stok mencukupi di lori
         
         if (CYLINDER_INVENTORY.TRUCK.full14 < q14 || CYLINDER_INVENTORY.TRUCK.full12 < q12 || CYLINDER_INVENTORY.TRUCK.fullI < qi) {
             cylinderWarning = 'AMARAN: Stok Tong Berisi di Lori tidak mencukupi! Rekod jualan telah dibuat, tetapi inventori tong tidak dikemaskini secara penuh. Sila semak semula pergerakan tong.';
+            console.warn(cylinderWarning);
         } else {
             // 1. Kurangkan Tong Berisi di Lori (dijual)
             CYLINDER_INVENTORY.TRUCK.full14 -= q14;
@@ -438,14 +464,14 @@ async function addSale() {
 
             saveCylinderInventory();
             recomputeCylinderKPIs();
+            renderCylinderInventoryStatus();
         }
 
         form.reset(); form.querySelector('#slDate').value = today(); calcSale();
         if (saleError) { 
-            alert('Gagal menambah jualan.'); 
-            console.error(saleError); 
+            /* Menggantikan alert */ console.error('Gagal menambah jualan.'); 
         } else if (cylinderWarning) {
-            alert(cylinderWarning);
+            /* Menggantikan alert */ console.warn(cylinderWarning);
         }
     } finally {
         document.body.style.cursor = 'default';
@@ -456,7 +482,7 @@ async function delSale(id) {
         document.body.style.cursor = 'wait';
         try {
             const { error } = await supabaseClient.from('sales').delete().eq('id', id);
-            if (error) { alert('Gagal memadam.'); console.error(error); }
+            if (error) { /* Menggantikan alert */ console.error('Gagal memadam:', error); }
         } finally {
             document.body.style.cursor = 'default';
         }
@@ -467,12 +493,12 @@ async function addDebtPayment() {
     try {
         const form = document.getElementById('payDebtForm');
         const clientName = form.querySelector('#debtClient').value;
-        if (!clientName) { alert('Sila pilih pelanggan.'); return; }
+        if (!clientName) { /* Menggantikan alert */ console.error('Sila pilih pelanggan.'); return; }
         const clientData = ALL_CLIENTS.find(c => c.name === clientName);
-        if (!clientData) { alert('Pelanggan tidak ditemui.'); return; }
+        if (!clientData) { /* Menggantikan alert */ console.error('Pelanggan tidak ditemui.'); return; }
         const q14 = +form.querySelector('#payQ14').value || 0; const q12 = +form.querySelector('#payQ12').value || 0; const qi = +form.querySelector('#payQI').value || 0;
         const amount = (q14 * clientData.p14) + (q12 * clientData.p12) + (qi * clientData.pi);
-        if (amount <= 0) { alert('Sila masukkan sekurang-kurangnya satu tong yang dibayar.'); return; }
+        if (amount <= 0) { /* Menggantikan alert */ console.error('Sila masukkan sekurang-kurangnya satu tong yang dibayar.'); return; }
         const newPayment = { date: today(), client_name: clientName, q14, q12, qi, amount, method: form.querySelector('#debtMethod').value, note: form.querySelector('#payNote').value };
         await supabaseClient.from('payments').insert([newPayment]);
         form.reset(); document.getElementById('debtInfo').innerHTML = 'Pilih pelanggan untuk lihat baki hutang.';
@@ -485,7 +511,7 @@ async function addPayroll() {
     try {
         const form = document.getElementById('addPayrollForm');
         const newPayroll = { date: form.querySelector('#pgDate').value || today(), name: form.querySelector('#pgName').value, amount: +form.querySelector('#pgAmt').value || 0, note: form.querySelector('#pgNote').value };
-        if(newPayroll.amount <= 0 || !newPayroll.name) { alert('Sila isi nama dan jumlah gaji.'); return; }
+        if(newPayroll.amount <= 0 || !newPayroll.name) { /* Menggantikan alert */ console.error('Sila isi nama dan jumlah gaji.'); return; }
         await supabaseClient.from('payrolls').insert([newPayroll]);
         form.reset(); form.querySelector('#pgDate').value = today();
     } finally {
@@ -497,7 +523,7 @@ async function delPayroll(id) {
         document.body.style.cursor = 'wait';
         try {
             const { error } = await supabaseClient.from('payrolls').delete().eq('id', id);
-            if (error) { alert('Gagal memadam.'); console.error(error); }
+            if (error) { /* Menggantikan alert */ console.error('Gagal memadam:', error); }
         } finally {
             document.body.style.cursor = 'default';
         }
@@ -505,7 +531,7 @@ async function delPayroll(id) {
 }
 async function deleteAllData() {
     if (prompt('AWAS! Ini akan memadam SEMUA data dari database. Taip "PADAM SEMUA" untuk sahkan.') !== 'PADAM SEMUA') {
-        alert('Operasi dibatalkan.'); return;
+        /* Menggantikan alert */ console.log('Operasi dibatalkan.'); return;
     }
     document.body.style.cursor = 'wait';
     try {
@@ -517,9 +543,9 @@ async function deleteAllData() {
         CYLINDER_INVENTORY = { OWNED: { q14: 0, q12: 0, qi: 0 }, STORE: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 }, TRUCK: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 } };
         saveCylinderInventory();
         
-        alert('Semua data telah berjaya dipadam.');
+        /* Menggantikan alert */ console.log('Semua data telah berjaya dipadam.');
     } catch (error) { 
-        alert('Gagal memadam semua data.'); 
+        /* Menggantikan alert */ console.error('Gagal memadam semua data.'); 
     } finally {
         document.body.style.cursor = 'default';
     }
@@ -598,16 +624,45 @@ function setCylinderOwnership() {
     const qi = +document.getElementById('ownQI').value || 0;
     const total = q14 + q12 + qi;
 
-    if (total <= 0) { alert('Jumlah tong dimiliki mesti lebih dari 0.'); return; }
+    if (total <= 0) { /* Menggantikan alert */ console.error('Jumlah tong dimiliki mesti lebih dari 0.'); return; }
     
-    if (!confirm(`Anda pasti mahu menetapkan total tong dimiliki kepada ${total} (${q14}/${q12}/${qi})? Ini hanya menetapkan total dan tidak mengemas kini lokasi/status sedia ada.`)) return;
+    // START SCENARIO INITIALIZATION (80 Full, 100 Empty) - Assuming proportional split for simplicity
+    const totalFull = 80;
+    const totalEmpty = 100;
+
+    const prop14 = q14 / total;
+    const prop12 = q12 / total;
+    const propI = qi / total;
+
+    // Approximate initial full and empty distribution in STORE
+    const initialFull14 = Math.round(totalFull * prop14);
+    const initialEmpty14 = q14 - initialFull14;
+    
+    const initialFull12 = Math.round(totalFull * prop12);
+    const initialEmpty12 = q12 - initialFull12;
+    
+    // Use remaining capacity for Industri
+    const initialFullI = totalFull - initialFull14 - initialFull12;
+    const initialEmptyI = qi - initialFullI;
+
+    
+    if (!confirm(`Anda pasti mahu menetapkan total tong dimiliki kepada ${total} (${q14}/${q12}/${qi})? Ini juga akan menetapkan keadaan awal di Store kepada 80 Berisi / 100 Kosong secara proporsional. Semua tong di lori akan di-reset ke 0.`)) return;
     
     document.body.style.cursor = 'wait';
     try {
         CYLINDER_INVENTORY.OWNED = { q14, q12, qi };
+        // Set initial STORE status based on user's scenario (80 Full, 100 Empty total)
+        CYLINDER_INVENTORY.STORE = { 
+            full14: initialFull14, empty14: initialEmpty14, 
+            full12: initialFull12, empty12: initialEmpty12, 
+            fullI: initialFullI, emptyI: initialEmptyI 
+        };
+        CYLINDER_INVENTORY.TRUCK = { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 };
+        
         saveCylinderInventory();
         recomputeCylinderKPIs();
-        alert(`Total Tong Dimiliki telah ditetapkan kepada ${total}.`);
+        renderCylinderInventoryStatus();
+        /* Menggantikan alert */ console.log(`Total Tong Dimiliki telah ditetapkan kepada ${total}. Keadaan awal Store (80 Berisi / 100 Kosong) telah dikemaskini.`);
     } finally {
         document.body.style.cursor = 'default';
     }
@@ -617,7 +672,7 @@ function handleCylinderMovement() {
     const type = document.getElementById('moveType').value;
     const size = document.getElementById('moveSize').value;
     const qty = +document.getElementById('moveQty').value || 0;
-    if (qty <= 0) { alert('Kuantiti mesti lebih dari 0.'); return; }
+    if (qty <= 0) { /* Menggantikan alert */ console.error('Kuantiti mesti lebih dari 0.'); return; }
 
     const sizeKey = size.toLowerCase(); 
     const fullKey = `full${sizeKey.slice(1)}`; 
@@ -652,12 +707,13 @@ function handleCylinderMovement() {
 
     document.body.style.cursor = 'wait';
     try {
-        if (error) { alert(`Gagal: ${error}`); }
+        if (error) { /* Menggantikan alert */ console.error(`Gagal: ${error}`); }
         else { 
             saveCylinderInventory(); 
             recomputeCylinderKPIs();
+            renderCylinderInventoryStatus();
             document.getElementById('cylinderMoveForm').reset();
-            alert(`Pergerakan ${qty}x ${size} Berjaya direkodkan.`);
+            /* Menggantikan alert */ console.log(`Pergerakan ${qty}x ${size} Berjaya direkodkan.`);
         }
     } finally {
         document.body.style.cursor = 'default';
@@ -667,7 +723,7 @@ function handleCylinderMovement() {
 function handleCylinderFilling() {
     const size = document.getElementById('fillSize').value;
     const qty = +document.getElementById('fillQty').value || 0;
-    if (qty <= 0) { alert('Kuantiti mesti lebih dari 0.'); return; }
+    if (qty <= 0) { /* Menggantikan alert */ console.error('Kuantiti mesti lebih dari 0.'); return; }
 
     const sizeKey = size.toLowerCase();
     const fullKey = `full${sizeKey.slice(1)}`;
@@ -677,14 +733,15 @@ function handleCylinderFilling() {
     document.body.style.cursor = 'wait';
     try {
         if (STORE[emptyKey] < qty) {
-            alert(`Gagal: Tong Kosong di Store tidak mencukupi untuk diisi. Baki: ${STORE[emptyKey]}`);
+            /* Menggantikan alert */ console.error(`Gagal: Tong Kosong di Store tidak mencukupi untuk diisi. Baki: ${STORE[emptyKey]}`);
         } else {
             STORE[emptyKey] -= qty;
             STORE[fullKey] += qty;
             saveCylinderInventory();
             recomputeCylinderKPIs();
+            renderCylinderInventoryStatus();
             document.getElementById('cylinderFillForm').reset();
-            alert(`${qty}x ${size} telah Berjaya diisi (Kosong -> Berisi) di Store.`);
+            /* Menggantikan alert */ console.log(`${qty}x ${size} telah Berjaya diisi (Kosong -> Berisi) di Store.`);
         }
     } finally {
         document.body.style.cursor = 'default';
@@ -695,19 +752,17 @@ function handleCylinderFilling() {
 // --- FUNGSI SIMULASI BARU (Dikemas kini untuk guna 'STORE') ---
 
 function updateInventoryState(description, inv) {
+    const totalOwned = inv.OWNED.q14 + inv.OWNED.q12 + inv.OWNED.qi || 0;
     const totalStore = (inv.STORE.full14 + inv.STORE.empty14 + inv.STORE.full12 + inv.STORE.empty12 + inv.STORE.fullI + inv.STORE.emptyI) || 0;
     const totalTruck = (inv.TRUCK.full14 + inv.TRUCK.empty14 + inv.TRUCK.full12 + inv.TRUCK.empty12 + inv.TRUCK.fullI + inv.TRUCK.emptyI) || 0;
-    const totalOwned = inv.OWNED.q14 + inv.OWNED.q12 + inv.OWNED.qi || 0;
     const totalCustomer = totalOwned - totalStore - totalTruck || 0;
     
     let html = `<div style="padding: 5px 0; border-bottom: 1px dashed var(--border); margin-bottom: 5px;">
         <p style="font-weight: bold; margin-bottom: 5px;">${description}</p>
-        <p>Total Owned: ${totalOwned} | Total At Store: ${totalStore} | Total On Truck: ${totalTruck} | Total Customer: ${totalCustomer}</p>
-        <div style="display: flex; gap: 15px; margin-top: 5px; font-size: 0.85rem;">
+        <p class="note" style="margin: 5px 0;">Owned: ${totalOwned} | Store: ${totalStore} | Truck: ${totalTruck} | Customer: ${totalCustomer}</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85rem;">
             <p style="color: var(--ok);">STORE FULL (14/12/I): ${inv.STORE.full14}/${inv.STORE.full12}/${inv.STORE.fullI}</p>
             <p style="color: var(--danger);">STORE EMPTY (14/12/I): ${inv.STORE.empty14}/${inv.STORE.empty12}/${inv.STORE.emptyI}</p>
-        </div>
-        <div style="display: flex; gap: 15px; margin-top: 5px; font-size: 0.85rem;">
             <p style="color: var(--ok);">TRUCK FULL (14/12/I): ${inv.TRUCK.full14}/${inv.TRUCK.full12}/${inv.TRUCK.fullI}</p>
             <p style="color: var(--danger);">TRUCK EMPTY (14/12/I): ${inv.TRUCK.empty14}/${inv.TRUCK.empty12}/${inv.TRUCK.emptyI}</p>
         </div>
@@ -728,38 +783,40 @@ function simulateScenario() {
         // Gunakan salinan untuk simulasi
         let inv = JSON.parse(JSON.stringify(CYLINDER_INVENTORY));
         
-        // --- TETAPAN AWAL (Assume total 180 (60/60/60) and proportional movements) ---
+        // --- TETAPAN AWAL (Mengikut senario pengguna: Total 180, 80F/100E di Store) ---
+        // Anda boleh ubah nilai ini jika nilai input OWNED berbeza, tetapi guna nilai lalai dari HTML.
         inv.OWNED = { q14: 60, q12: 60, qi: 60 };
         
         // 1. Keadaan Awal: 180 tong. 100 tong Kosong (30/30/40), 80 Tong berisi (30/30/20). Semua di Store.
-        // Store Total: 180. Truck Total: 0.
+        // Distribusi 80F/100E secara proporsional (60/60/60 total tong)
+        // (80 * (60/180) = 26.6 -> 27. 100 * (60/180) = 33.3 -> 33)
+        // Kita guna nombor yang mudah difahami dan total 80/100: 14KG(30F/30E), 12KG(30F/30E), IND(20F/40E) -> Total (80F/100E)
         inv.STORE = { full14: 30, empty14: 30, full12: 30, empty12: 30, fullI: 20, emptyI: 40 };
         inv.TRUCK = { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 };
-        updateInventoryState('LANGKAH 1: Keadaan Awal (Total 180, Store: 80F/100E)', inv);
+        updateInventoryState('LANGKAH 1 (AWAL): 180 Tong Dimiliki. Store: 80F/100E. Lori: 0', inv);
 
         // --- PERGERAKAN SIMULASI ---
         
-        // Asumsi pengagihan 82 tong kosong: 30x14KG, 30x12KG, 22xIndustri (Total 82)
+        // Asumsi pengagihan 82 tong kosong yang diambil: 30x14KG, 30x12KG, 22xIndustri (Total 82)
         const q14_move = 30; const q12_move = 30; const qi_move = 22;
 
         // 2. Lori Ambil 82 tong kosong dari Store. (Load Empty: Store -> Truck)
         inv.STORE.empty14 -= q14_move; inv.TRUCK.empty14 += q14_move;
         inv.STORE.empty12 -= q12_move; inv.TRUCK.empty12 += q12_move;
         inv.STORE.emptyI -= qi_move; inv.TRUCK.emptyI += qi_move;
-        updateInventoryState('LANGKAH 2: Lori Ambil 82 Tong Kosong (Store -> Lori)', inv);
+        updateInventoryState('LANGKAH 2: Lori Ambil 82 Tong Kosong (Store $\to$ Lori)', inv);
         
-        // 3. Lori Isi 82 tong kosong di Kilang Ah Seng. (Truck Empty -> Truck Full)
-        // Walaupun diisi di Kilang Ah Seng, status tong di lori bertukar dari Kosong -> Berisi
+        // 3. Lori Isi 82 tong kosong di Kilang A. (Truck Empty -> Truck Full)
         inv.TRUCK.empty14 -= q14_move; inv.TRUCK.full14 += q14_move;
         inv.TRUCK.empty12 -= q12_move; inv.TRUCK.full12 += q12_move;
         inv.TRUCK.emptyI -= qi_move; inv.TRUCK.fullI += qi_move;
-        updateInventoryState('LANGKAH 3: Lori Isi 82 Tong (Kosong -> Berisi)', inv);
+        updateInventoryState('LANGKAH 3: Lori Isi 82 Tong (Kosong $\to$ Berisi)', inv);
         
         // 4. Jualan: 82 tong berisi kini telah menjadi kosong setelah jualan (pertukaran dengan pelanggan). (Truck Full -> Truck Empty)
         inv.TRUCK.full14 -= q14_move; inv.TRUCK.empty14 += q14_move;
         inv.TRUCK.full12 -= q12_move; inv.TRUCK.empty12 += q12_move;
         inv.TRUCK.fullI -= qi_move; inv.TRUCK.emptyI += qi_move;
-        updateInventoryState('LANGKAH 4: Jualan 82 Tong (Berisi -> Kosong)', inv);
+        updateInventoryState('LANGKAH 4: Jualan 82 Tong (Berisi $\to$ Kosong)', inv);
 
         // 5. Lori pulang ke store dan turun 82 kosong dan masukkan 50 berisi.
         
@@ -767,7 +824,7 @@ function simulateScenario() {
         inv.TRUCK.empty14 -= q14_move; inv.STORE.empty14 += q14_move;
         inv.TRUCK.empty12 -= q12_move; inv.STORE.empty12 += q12_move;
         inv.TRUCK.emptyI -= qi_move; inv.STORE.emptyI += qi_move;
-        updateInventoryState('LANGKAH 5A: Lori Turun 82 Tong Kosong (Lori -> Store)', inv);
+        updateInventoryState('LANGKAH 5A: Lori Turun 82 Tong Kosong (Lori $\to$ Store)', inv);
 
         // 5B: Masukkan 50 tong yang berisi. (Load Full: Store -> Truck)
         // Asumsi pengagihan 50 tong berisi: 20x14KG, 20x12KG, 10xIndustri (Total 50)
@@ -776,17 +833,18 @@ function simulateScenario() {
         inv.STORE.full14 -= q14_load; inv.TRUCK.full14 += q14_load;
         inv.STORE.full12 -= q12_load; inv.TRUCK.full12 += q12_load;
         inv.STORE.fullI -= qi_load; inv.TRUCK.fullI += qi_load;
-        updateInventoryState('LANGKAH 5B: Lori Ambil 50 Tong Berisi (Store -> Lori) - Operasi Selesai', inv);
+        updateInventoryState('LANGKAH 5B (AKHIR): Lori Ambil 50 Tong Berisi (Store $\to$ Lori) - Operasi Selesai', inv);
         
         // Kemas kini inventori sebenar
         CYLINDER_INVENTORY = inv;
         saveCylinderInventory();
         recomputeSummary(); // Refresh KPI
+        renderCylinderInventoryStatus();
         
-        alert('Simulasi 5 langkah telah selesai dan inventori anda telah dikemaskini.');
+        /* Menggantikan alert */ console.log('Simulasi 5 langkah telah selesai dan inventori anda telah dikemaskini.');
     } catch (error) {
         console.error("Ralat dalam simulasi:", error);
-        alert('Ralat berlaku semasa simulasi. Sila semak konsol.');
+        /* Menggantikan alert */ console.error('Ralat berlaku semasa simulasi. Sila semak konsol.');
     } finally {
         document.body.style.cursor = 'default';
     }
@@ -856,8 +914,8 @@ function setupUIListeners() {
     
     document.getElementById('savePIN').addEventListener('click', () => {
         const newPin = document.getElementById('setPIN').value;
-        if (newPin) { setPIN(newPin); alert('PIN baru telah disimpan.'); }
-        else { alert('PIN tidak boleh kosong.'); }
+        if (newPin) { setPIN(newPin); /* Menggantikan alert */ console.log('PIN baru telah disimpan.'); }
+        else { /* Menggantikan alert */ console.error('PIN tidak boleh kosong.'); }
     });
     document.getElementById('deleteAllDataBtn').addEventListener('click', deleteAllData);
     document.getElementById('resetAllSalesBtn').addEventListener('click', async () => {
@@ -869,6 +927,7 @@ function setupUIListeners() {
                 // Jualan/Bayaran dipadam, Tong Kosong lori perlu dikosongkan (dianggap semua sudah dihantar balik)
                 CYLINDER_INVENTORY.TRUCK = { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 };
                 saveCylinderInventory();
+                /* Menggantikan alert */ console.log('Semua data jualan telah dipadam.');
             } finally {
                 document.body.style.cursor = 'default';
             }
@@ -881,7 +940,7 @@ function setupUIListeners() {
             COUNTERS.soldAtReset.qi = ALL_SALES.reduce((sum, s) => sum + (s.qi || 0), 0);
             saveCounters();
             recomputeSummary();
-            alert('Kiraan "Terjual" telah direset.');
+            /* Menggantikan alert */ console.log('Kiraan "Terjual" telah direset.');
         }
     });
 
@@ -940,7 +999,7 @@ function setupUIListeners() {
         if (document.getElementById('adminPIN').value === getPIN()) {
             document.getElementById('adminLogin').style.display = 'none';
             document.getElementById('adminArea').style.display = 'block';
-        } else { alert('PIN salah'); }
+        } else { /* Menggantikan alert */ console.error('PIN salah'); }
     });
 
     document.getElementById('reportPeriodBtns').addEventListener('click', (e) => {
@@ -995,3 +1054,4 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
     listenToDatabaseChanges();
 });
+
