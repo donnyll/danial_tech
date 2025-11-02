@@ -188,31 +188,3 @@ body.records-hidden .record-title {
     display: none;
 }
 
-/* START: Gaya Baru untuk Jadual Inventori */
-.inventory-table-container table {
-    width: 100%;
-    border-collapse: collapse;
-}
-.inventory-table-container th, 
-.inventory-table-container td {
-    padding: 8px 4px;
-    text-align: center;
-    font-size: 0.85rem;
-    border: 1px solid var(--border);
-}
-.inventory-table-container th {
-    background: var(--surface);
-    font-weight: 600;
-}
-.inventory-table-container td {
-    background: var(--bg);
-}
-.full-cell {
-    color: var(--ok); /* Hijau untuk Penuh */
-    font-weight: bold;
-}
-.empty-cell {
-    color: var(--danger); /* Merah untuk Kosong */
-    font-weight: bold;
-}
-/* END: Gaya Baru untuk Jadual Inventori */
