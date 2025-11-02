@@ -9,154 +9,53 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const fmt = (n) => Number(n || 0).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
 const getPIN = () => localStorage.getItem('thc_admin_pin') || 'boss123';
-const setPIN = (v) => localStorage.setItem('thc_admin_pin', v);
+const setPIN = (v) => localStorage.getItem('thc_admin_pin', v);
 
 const THEME_KEY = 'thc_theme';
 const COUNTERS_KEY = 'thc_counters';
 
-// ==================
-// FIZIKAL TONG (boleh berubah ikut jual-tong)
-// ==================
-const PHYSICAL_KEY = 'thc_physical_totals';
-const MOVES_KEY = 'thc_cylinder_moves';
-const DEFAULT_PHYSICAL = { q14: 0, q12: 0, qi: 0 };
+// --- INVENTORI TONG GAS (BARU) ---
+const CYLINDER_INVENTORY_KEY = 'thc_cylinder_inv';
+let CYLINDER_INVENTORY = {
+    // Total owned cylinders (set by owner)
+    OWNED: { q14: 0, q12: 0, qi: 0 },
+    // Current stock status at Factory/Depot
+    FACTORY: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 },
+    // Current stock status on Truck/Lorry
+    TRUCK: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 },
+};
 
-function getPhysicalTotals() {
-    const raw = localStorage.getItem(PHYSICAL_KEY);
-    if (!raw) return { ...DEFAULT_PHYSICAL };
-    try { return JSON.parse(raw); } catch(e) { return { ...DEFAULT_PHYSICAL }; }
+function loadCylinderInventory() {
+    const data = JSON.parse(localStorage.getItem(CYLINDER_INVENTORY_KEY) || 'null');
+    if (data) CYLINDER_INVENTORY = data;
 }
-function setPhysicalTotals(data) {
-    localStorage.setItem(PHYSICAL_KEY, JSON.stringify(data));
-}
-function getMoves() {
-    const raw = localStorage.getItem(MOVES_KEY);
-    if (!raw) return [];
-    try { return JSON.parse(raw); } catch(e){ return []; }
-}
-function setMoves(list) {
-    localStorage.setItem(MOVES_KEY, JSON.stringify(list));
-}
-function seedPhysicalMovesIfEmpty() {
-    const m = getMoves();
-    if (m.length) return;
-    const sample = [
-        { ts: Date.now()-1000*60*60*5, type: 'isi-lori', m14: 80, m12: 0, mi: 0, note: 'Isi lori 80 tong' },
-        { ts: Date.now()-1000*60*60*4, type: 'jual-gas', m14: 80, m12: 0, mi: 0, note: 'Jual 80 tong tukar kosong' },
-        { ts: Date.now()-1000*60*60*3, type: 'lori→kilang', m14: 50, m12: 0, mi: 0, note: 'Turun 50 kosong ke kilang' },
-        { ts: Date.now()-1000*60*60*3+5000, type: 'kilang→lori', m14: 50, m12: 0, mi: 0, note: 'Ambil 50 berisi dari kilang' },
-        { ts: Date.now()-1000*60*60*2, type: 'jual-dengan-tong', m14: 2, m12: 0, mi: 0, note: 'Customer beli sekali 2 tong 14kg' }
-    ];
-    setMoves(sample);
-}
-function computeCurrentPhysicalTotals() {
-    const base = getPhysicalTotals();
-    const moves = getMoves();
-    let total14 = base.q14;
-    let total12 = base.q12;
-    let totalI = base.qi;
-    moves.forEach(ev => {
-        const q14 = ev.m14 || 0, q12 = ev.m12 || 0, qi = ev.mi || 0;
-        if (ev.type === 'jual-dengan-tong') {
-            total14 -= q14; total12 -= q12; totalI -= qi;
-        }
-        if (ev.type === 'beli-tong-baru') {
-            total14 += q14; total12 += q12; totalI += qi;
-        }
-        if (ev.type === 'buang/rosak') {
-            total14 -= q14; total12 -= q12; totalI -= qi;
-        }
-    });
-    return { q14: Math.max(0,total14), q12: Math.max(0,total12), qi: Math.max(0,totalI) };
-}
-function rebuildPhysicalDistribution() {
-    const physicalTotals = computeCurrentPhysicalTotals();
-    const moves = getMoves().slice().sort((a,b)=>a.ts-b.ts);
-    let loriFilled14=0,loriEmpty14=0,loriFilled12=0,loriEmpty12=0,loriFilledI=0,loriEmptyI=0;
-    moves.forEach(ev => {
-        const q14 = ev.m14 || 0, q12 = ev.m12 || 0, qi = ev.mi || 0;
-        switch(ev.type){
-            case 'kilang→lori':
-                loriFilled14 += q14; loriFilled12 += q12; loriFilledI += qi; break;
-            case 'lori→kilang':
-                loriEmpty14 = Math.max(0, loriEmpty14 - q14);
-                loriEmpty12 = Math.max(0, loriEmpty12 - q12);
-                loriEmptyI  = Math.max(0, loriEmptyI  - qi);
-                break;
-            case 'isi-lori':
-                loriEmpty14 = Math.max(0, loriEmpty14 - q14);
-                loriEmpty12 = Math.max(0, loriEmpty12 - q12);
-                loriEmptyI  = Math.max(0, loriEmptyI  - qi);
-                loriFilled14 += q14; loriFilled12 += q12; loriFilledI += qi;
-                break;
-            case 'jual-gas':
-                loriFilled14 = Math.max(0, loriFilled14 - q14);
-                loriFilled12 = Math.max(0, loriFilled12 - q12);
-                loriFilledI  = Math.max(0, loriFilledI  - qi);
-                loriEmpty14  += q14; loriEmpty12  += q12; loriEmptyI   += qi;
-                break;
-            case 'jual-dengan-tong':
-                loriFilled14 = Math.max(0, loriFilled14 - q14);
-                loriFilled12 = Math.max(0, loriFilled12 - q12);
-                loriFilledI  = Math.max(0, loriFilledI  - qi);
-                break;
-        }
-    });
-    const loriTotal14 = loriFilled14 + loriEmpty14;
-    const loriTotal12 = loriFilled12 + loriEmpty12;
-    const loriTotalI  = loriFilledI  + loriEmptyI;
-    const kilangTotal14 = Math.max(0, physicalTotals.q14 - loriTotal14);
-    const kilangTotal12 = Math.max(0, physicalTotals.q12 - loriTotal12);
-    const kilangTotalI  = Math.max(0, physicalTotals.qi  - loriTotalI);
-    return {
-        physicalTotals,
-        lori: {
-            filled: { q14: loriFilled14, q12: loriFilled12, qi: loriFilledI },
-            empty:  { q14: loriEmpty14,  q12: loriEmpty12,  qi: loriEmptyI  },
-        },
-        kilang: {
-            filled: { q14: kilangTotal14, q12: kilangTotal12, qi: kilangTotalI },
-            empty:  { q14: 0, q12: 0, qi: 0 }
-        }
-    };
-}
-function initPhysicalForm() {
-    const pf14 = document.getElementById('pf14');
-    if (!pf14) return;
-    const pf = getPhysicalTotals();
-    pf14.value = pf.q14;
-    document.getElementById('pf12').value = pf.q12;
-    document.getElementById('pfi').value  = pf.qi;
-    document.getElementById('savePhysicalBtn').addEventListener('click', () => {
-        const data = {
-            q14: Number(document.getElementById('pf14').value || 0),
-            q12: Number(document.getElementById('pf12').value || 0),
-            qi:  Number(document.getElementById('pfi').value  || 0),
-        };
-        setPhysicalTotals(data);
-        const msg = document.getElementById('pfMsg');
-        if (msg) msg.textContent = 'Disimpan. Dashboard dikemas kini.';
-        recomputeSummary();
-    });
+function saveCylinderInventory() {
+    localStorage.setItem(CYLINDER_INVENTORY_KEY, JSON.stringify(CYLINDER_INVENTORY));
 }
 
 // Cache data
 let ALL_STOCKS = [], ALL_SALES = [], ALL_EXPENSES = [], ALL_PAYROLLS = [], ALL_CLIENTS = [], ALL_PAYMENTS = [];
 let COUNTERS = { soldAtReset: { q12: 0, q14: 0, qi: 0 } };
 
+function loadCounters() {
+    const data = JSON.parse(localStorage.getItem(COUNTERS_KEY) || 'null');
+    if (data) COUNTERS = data;
+}
+function saveCounters() {
+    localStorage.setItem(COUNTERS_KEY, JSON.stringify(COUNTERS));
+}
+
 // ==================
 // FUNGSI UTAMA & PAPARAN
 // ==================
 async function renderAll() {
     document.body.style.cursor = 'wait';
-    seedPhysicalMovesIfEmpty();
     await fetchAllData();
     await Promise.all([
         renderStocks(), renderExpenses(), renderClients(),
         renderSales(), renderPayments(), renderPayroll(),
         recomputeSummary(), renderReport()
     ]);
-    initPhysicalForm();
     calcSale();
     document.body.style.cursor = 'default';
 }
@@ -170,6 +69,7 @@ async function fetchAllData() {
     const { data: payments } = await supabaseClient.from('payments').select('*');
     ALL_STOCKS = stocks || []; ALL_SALES = sales || []; ALL_EXPENSES = expenses || [];
     ALL_PAYROLLS = payrolls || []; ALL_CLIENTS = clients || []; ALL_PAYMENTS = payments || [];
+    loadCylinderInventory(); // Muat Inventori Tong
 }
 
 function renderGrouped(hostId, items, renderItemFn) {
@@ -240,6 +140,33 @@ function renderPayroll() {
 // ==================
 // FUNGSI PENGIRAAN
 // ==================
+
+// --- FUNGSI BARU UNTUK INVENTORI TONG ---
+function recomputeCylinderKPIs() {
+    const { OWNED, FACTORY, TRUCK } = CYLINDER_INVENTORY;
+    const totalOwned = OWNED.q14 + OWNED.q12 + OWNED.qi;
+    const totalAtFactory = (FACTORY.full14 + FACTORY.empty14 + FACTORY.full12 + FACTORY.empty12 + FACTORY.fullI + FACTORY.emptyI);
+    const totalOnTruck = (TRUCK.full14 + TRUCK.empty14 + TRUCK.full12 + TRUCK.empty12 + TRUCK.fullI + TRUCK.emptyI);
+    // Tong Pelanggan (Anggapan: kosong sehingga dipulangkan/ditukar)
+    const totalCustomer = totalOwned - totalAtFactory - totalOnTruck;
+
+    const cylinderKPIs = [
+        { k: 'Total Tong Dimiliki', v: totalOwned, id: 'total-owned' },
+        { k: 'Tong Kilang (Berisi)', v: FACTORY.full14 + FACTORY.full12 + FACTORY.fullI, id: 'factory-full', isFull: true },
+        { k: 'Tong Kilang (Kosong)', v: FACTORY.empty14 + FACTORY.empty12 + FACTORY.emptyI, id: 'factory-empty' },
+        { k: 'Tong Lori (Berisi)', v: TRUCK.full14 + TRUCK.full12 + TRUCK.fullI, id: 'truck-full', isFull: true },
+        { k: 'Tong Lori (Kosong)', v: TRUCK.empty14 + TRUCK.empty12 + TRUCK.emptyI, id: 'truck-empty' },
+        { k: 'Tong Pelanggan (Angg.)', v: totalCustomer, id: 'customer-empty' },
+    ];
+    document.getElementById('cylinderSummaryBar').innerHTML = cylinderKPIs.map(x => 
+        `<div class="kpi" id="kpi-${x.id}" ${x.isFull ? 'style="background: var(--ok); color: black;"' : ''}>
+            <h4>${x.k}</h4>
+            <div class="v">${(x.v || 0).toLocaleString()}</div>
+        </div>`
+    ).join('');
+}
+
+
 function computeClientDebt(clientName) {
     const clientSales = ALL_SALES.filter(s => s.client_name === clientName);
     const clientPayments = ALL_PAYMENTS.filter(p => p.client_name === clientName);
@@ -294,51 +221,39 @@ function rebuildInventoryAndGetCosts(salesToProcess = null) {
 function recomputeSummary() {
     const totalIn = (key) => ALL_STOCKS.reduce((sum, s) => sum + (s[key] || 0), 0);
     const totalSold = (key) => ALL_SALES.reduce((sum, s) => sum + (s[key] || 0), 0);
-    const latestStock = [...ALL_STOCKS].sort((a,b) => new Date(b.date) - new Date(a.date) || b.batch - a.batch)[0] || {q12:0, q14:0, qi:0};
+    
+    // Kira Baki Stok Gas (untuk tujuan kewangan, dari rekod stok masuk)
+    const gasBaki14 = totalIn('q14') - totalSold('q14');
+    const gasBaki12 = totalIn('q12') - totalSold('q12');
+    const gasBakiI = totalIn('qi') - totalSold('qi');
+    
+    // Panggil fungsi baru untuk kemaskini KPI Tong Fizikal
+    recomputeCylinderKPIs(); 
+
     const kp = [
-        { k: 'Stok Terkini 14KG', v: latestStock.q14 },
-        { k: 'Stok Terkini 12KG', v: latestStock.q12 },
-        { k: 'Stok Terkini Industri', v: latestStock.qi },
-        { k: 'Baki 14KG', v: totalIn('q14') - totalSold('q14') },
-        { k: 'Baki 12KG', v: totalIn('q12') - totalSold('q12') },
-        { k: 'Baki Industri', v: totalIn('qi') - totalSold('qi') },
-        { k: 'Terjual 14KG', v: totalSold('q14') - (COUNTERS.soldAtReset.q14 || 0) },
-        { k: 'Terjual 12KG', v: totalSold('q12') - (COUNTERS.soldAtReset.q12 || 0) },
+        // Tong Berisi di Kilang (Paling Penting untuk Operasi)
+        { k: 'Tong Berisi (Kilang)', v: CYLINDER_INVENTORY.FACTORY.full14 + CYLINDER_INVENTORY.FACTORY.full12 + CYLINDER_INVENTORY.FACTORY.fullI, id: 'factory-full-summary' }, 
+        
+        // Baki Stok Gas (dari rekod stok masuk/keluar)
+        { k: 'Baki Stok Gas 14KG', v: gasBaki14 }, 
+        { k: 'Baki Stok Gas 12KG', v: gasBaki12 }, 
+        { k: 'Baki Stok Gas Industri', v: gasBakiI },
+        
+        // Rekod Terjual
+        { k: 'Terjual 14KG', v: totalSold('q14') - (COUNTERS.soldAtReset.q14 || 0) }, 
+        { k: 'Terjual 12KG', v: totalSold('q12') - (COUNTERS.soldAtReset.q12 || 0) }, 
         { k: 'Terjual Industri', v: totalSold('qi') - (COUNTERS.soldAtReset.qi || 0) },
     ];
-
-    // tambah panel fizikal
-    try {
-        const dist = rebuildPhysicalDistribution();
-        const p = dist.physicalTotals;
-        kp.push(
-            { k: 'Fizikal 14KG', v: p.q14 },
-            { k: 'Fizikal 12KG', v: p.q12 },
-            { k: 'Fizikal Industri', v: p.qi },
-            { k: 'Lori 14KG (Isi)', v: dist.lori.filled.q14 },
-            { k: 'Lori 14KG (Kosong)', v: dist.lori.empty.q14 },
-            { k: 'Kilang 14KG (Isi)', v: dist.kilang.filled.q14 },
-            { k: 'Lori 12KG (Isi)', v: dist.lori.filled.q12 },
-            { k: 'Lori 12KG (Kosong)', v: dist.lori.empty.q12 },
-            { k: 'Kilang 12KG (Isi)', v: dist.kilang.filled.q12 },
-            { k: 'Lori Industri (Isi)', v: dist.lori.filled.qi },
-            { k: 'Lori Industri (Kosong)', v: dist.lori.empty.qi },
-            { k: 'Kilang Industri (Isi)', v: dist.kilang.filled.qi },
-        );
-    } catch(e) {
-        console.warn('Fizikal tong tidak dapat dikira:', e);
-    }
-
-    document.getElementById('summaryBar').innerHTML = kp.map(x =>
-        `<div class="kpi"><h4>${x.k}</h4><div class="v">${(x.v || 0).toLocaleString()}</div></div>`
-    ).join('');
+    
+    // Paparkan KPI ke summaryBar
+    document.getElementById('summaryBar').innerHTML = kp.map(x => `<div class="kpi"><h4>${x.k}</h4><div class="v">${(x.v || 0).toLocaleString()}</div></div>`).join('');
 }
 
 function renderReport(period = 'all') {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(todayStart);
-    weekStart.setDate(weekStart.getDate() - now.getDay());
+    weekStart.setDate(weekStart.getDate() - now.getDay()); // Anggap minggu mula Ahad
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const filterByDate = (item) => {
@@ -346,7 +261,7 @@ function renderReport(period = 'all') {
         if (period === 'day') return itemDate >= todayStart;
         if (period === 'week') return itemDate >= weekStart;
         if (period === 'month') return itemDate >= monthStart;
-        return true;
+        return true; // period 'all'
     };
 
     const filteredSales = ALL_SALES.filter(filterByDate);
@@ -373,98 +288,509 @@ function renderReport(period = 'all') {
         ['Jumlah Jualan', totalSalesValue, true], ['Untung Bersih', netProfit, true],
         ['Jumlah Hutang (Semua)', totalDebtRM, true], ['Untung Kasar', grossProfit, true],
         ['Modal Gas Terpakai', totalCostOfGoodsSold, true], ['Modal Lain', totalOtherCost, true],
-        ['Gaji Pekerja', totalPayrollCost, true], ['Bayaran Diterima', totalPaymentsReceived, true],
+        ['Gaji Dibayar', totalPayrollCost, true], 
+        ['Bayaran Diterima', totalPaymentsReceived, true, `Tunai: RM ${fmt(totalCashPayments)}<br>Transfer: RM ${fmt(totalTransferPayments)}`],
     ];
-    const host = document.getElementById('reportKPI');
-    if (host) {
-        host.innerHTML = kpis.map(([label, value, isRM]) => {
-            return `<div class="kpi"><h4>${label}</h4><div class="v">${isRM ? 'RM ' : ''}${fmt(value)}</div></div>`;
-        }).join('');
-    }
+    document.getElementById('reportKPI').innerHTML = kpis.map(([label, value, isCurrency, subtext]) => {
+        return `<div class="kpi" style="background: var(--surface-2);"><h4>${label}</h4><div class="v">${isCurrency ? `RM ${fmt(value)}` : (value || 0).toLocaleString()}</div>${subtext ? `<div class="sub-v">${subtext}</div>` : ''}</div>`;
+    }).join('');
 }
 
 // ==================
-// OPERASI DATABASE
+// FUNGSI AKSI
+// ==================
+async function addStock() {
+    const form = document.getElementById('addStockForm');
+    const newStock = { date: form.querySelector('#stDate').value || today(), note: form.querySelector('#stNote').value, q14: +form.querySelector('#stQ14').value || 0, c14: +form.querySelector('#stC14').value || 0, q12: +form.querySelector('#stQ12').value || 0, c12: +form.querySelector('#stC12').value || 0, qi: +form.querySelector('#stQI').value || 0, ci: +form.querySelector('#stCI').value || 0, batch: Date.now() };
+    if (!newStock.note) { alert('Nota wajib diisi.'); return; }
+    await supabaseClient.from('stocks').insert([newStock]);
+    form.reset(); form.querySelector('#stDate').value = today();
+}
+async function delStock(id) {
+    if (confirm('Anda pasti mahu padam rekod stok ini?')) {
+        const { error } = await supabaseClient.from('stocks').delete().eq('id', id);
+        if (error) { alert('Gagal memadam.'); console.error(error); }
+    }
+}
+async function addExpense() {
+    const form = document.getElementById('addExpenseForm');
+    const newExpense = { date: form.querySelector('#exDate').value || today(), type: form.querySelector('#exType').value, amount: +form.querySelector('#exAmt').value || 0, note: form.querySelector('#exNote').value };
+    if (newExpense.amount <= 0) { alert('Sila masukkan jumlah.'); return; }
+    await supabaseClient.from('expenses').insert([newExpense]);
+    form.reset(); form.querySelector('#exDate').value = today();
+}
+async function delExpense(id) {
+    if (confirm('Anda pasti mahu padam rekod modal ini?')) {
+        const { error } = await supabaseClient.from('expenses').delete().eq('id', id);
+        if (error) { alert('Gagal memadam.'); console.error(error); }
+    }
+}
+async function addClient() {
+    const form = document.getElementById('addClientForm');
+    const newClient = { name: form.querySelector('#clName').value, cat: form.querySelector('#clCat').value, p14: +form.querySelector('#clP14').value || 0, p12: +form.querySelector('#clP12').value || 0, pi: +form.querySelector('#clPI').value || 0 };
+    if (!newClient.name) { alert('Nama pelanggan wajib diisi.'); return; }
+    await supabaseClient.from('clients').insert([newClient]);
+    form.reset();
+}
+async function delClient(id) {
+    if (confirm('Anda pasti?')) {
+        const { error } = await supabaseClient.from('clients').delete().eq('id', id);
+        if (error) { 
+            alert('Gagal memadam pelanggan. Pastikan tiada jualan atau bayaran yang terikat dengan pelanggan ini.'); 
+            console.error(error);
+        }
+    }
+}
+// --- KEMASKINI FUNGSI addSale untuk kemaskini CYLINDER_INVENTORY ---
+async function addSale() {
+    const form = document.getElementById('addSaleForm');
+    const clientName = form.querySelector('#slClient').value;
+    if (!clientName) { alert('Sila pilih pelanggan.'); return; }
+    const clientData = ALL_CLIENTS.find(c => c.name === clientName);
+    if (!clientData) { alert('Pelanggan tidak ditemui.'); return; }
+    const newSale = {
+        date: form.querySelector('#slDate').value || today(), client_name: clientName,
+        q14: +form.querySelector('#slQ14').value || 0, paid14: +form.querySelector('#slPaid14').value || 0,
+        q12: +form.querySelector('#slQ12').value || 0, paid12: +form.querySelector('#slPaid12').value || 0,
+        qi: +form.querySelector('#slQI').value || 0, paidI: +form.querySelector('#slPaidI').value || 0,
+        price14: clientData.p14, price12: clientData.p12, priceI: clientData.pi,
+        payType: form.querySelector('#slPayType').value, remark: form.querySelector('#slRemark').value
+    };
+    if (newSale.q12 + newSale.q14 + newSale.qi <= 0) { alert('Sila masukkan sekurang-kurangnya satu tong.'); return; }
+    if (newSale.paid14 > newSale.q14 || newSale.paid12 > newSale.q12 || newSale.paidI > newSale.qi) { alert('Tong dibayar tidak boleh melebihi total tong.'); return; }
+    
+    const paidAmount = ((newSale.paid12||0) * newSale.price12) + ((newSale.paid14||0) * newSale.price14) + ((newSale.paidI||0) * newSale.priceI);
+    if (paidAmount > 0) {
+        await supabaseClient.from('payments').insert([{ date: newSale.date, client_name: newSale.client_name, amount: paidAmount, method: newSale.payType, note: `Bayaran semasa jualan. ${newSale.remark}`.trim() }]);
+    }
+    
+    const { error: saleError } = await supabaseClient.from('sales').insert([newSale]);
+
+    let cylinderWarning = '';
+    
+    // --- KEMASKINI INVENTORI TONG ---
+    const q14 = newSale.q14;
+    const q12 = newSale.q12;
+    const qi = newSale.qi;
+    
+    // Asumsi: Jualan = pertukaran. Lori beri tong berisi, ambil tong kosong.
+    
+    if (CYLINDER_INVENTORY.TRUCK.full14 < q14 || CYLINDER_INVENTORY.TRUCK.full12 < q12 || CYLINDER_INVENTORY.TRUCK.fullI < qi) {
+        cylinderWarning = 'AMARAN: Stok Tong Berisi di Lori tidak mencukupi! Rekod jualan telah dibuat, tetapi inventori tong tidak dikemaskini secara penuh. Sila semak semula pergerakan tong.';
+    } else {
+        // 1. Kurangkan Tong Berisi di Lori (dijual)
+        CYLINDER_INVENTORY.TRUCK.full14 -= q14;
+        CYLINDER_INVENTORY.TRUCK.full12 -= q12;
+        CYLINDER_INVENTORY.TRUCK.fullI -= qi;
+        
+        // 2. Tambah Tong Kosong di Lori (diambil dari pelanggan)
+        CYLINDER_INVENTORY.TRUCK.empty14 += q14;
+        CYLINDER_INVENTORY.TRUCK.empty12 += q12;
+        CYLINDER_INVENTORY.TRUCK.emptyI += qi;
+
+        saveCylinderInventory();
+        recomputeCylinderKPIs();
+    }
+
+    form.reset(); form.querySelector('#slDate').value = today(); calcSale();
+    if (saleError) { 
+        alert('Gagal menambah jualan.'); 
+        console.error(saleError); 
+    } else if (cylinderWarning) {
+        alert(cylinderWarning);
+    }
+}
+async function delSale(id) {
+    if (confirm('Anda pasti mahu padam rekod jualan ini?')) {
+        const { error } = await supabaseClient.from('sales').delete().eq('id', id);
+        if (error) { alert('Gagal memadam.'); console.error(error); }
+    }
+}
+async function addDebtPayment() {
+    const form = document.getElementById('payDebtForm');
+    const clientName = form.querySelector('#debtClient').value;
+    if (!clientName) { alert('Sila pilih pelanggan.'); return; }
+    const clientData = ALL_CLIENTS.find(c => c.name === clientName);
+    if (!clientData) { alert('Pelanggan tidak ditemui.'); return; }
+    const q14 = +form.querySelector('#payQ14').value || 0; const q12 = +form.querySelector('#payQ12').value || 0; const qi = +form.querySelector('#payQI').value || 0;
+    const amount = (q14 * clientData.p14) + (q12 * clientData.p12) + (qi * clientData.pi);
+    if (amount <= 0) { alert('Sila masukkan sekurang-kurangnya satu tong yang dibayar.'); return; }
+    const newPayment = { date: today(), client_name: clientName, q14, q12, qi, amount, method: form.querySelector('#debtMethod').value, note: form.querySelector('#payNote').value };
+    await supabaseClient.from('payments').insert([newPayment]);
+    form.reset(); document.getElementById('debtInfo').innerHTML = 'Pilih pelanggan untuk lihat baki hutang.';
+}
+async function addPayroll() {
+    const form = document.getElementById('addPayrollForm');
+    const newPayroll = { date: form.querySelector('#pgDate').value || today(), name: form.querySelector('#pgName').value, amount: +form.querySelector('#pgAmt').value || 0, note: form.querySelector('#pgNote').value };
+    if(newPayroll.amount <= 0 || !newPayroll.name) { alert('Sila isi nama dan jumlah gaji.'); return; }
+    await supabaseClient.from('payrolls').insert([newPayroll]);
+    form.reset(); form.querySelector('#pgDate').value = today();
+}
+async function delPayroll(id) {
+    if (confirm('Anda pasti mahu padam rekod gaji ini?')) {
+        const { error } = await supabaseClient.from('payrolls').delete().eq('id', id);
+        if (error) { alert('Gagal memadam.'); console.error(error); }
+    }
+}
+async function deleteAllData() {
+    if (prompt('AWAS! Ini akan memadam SEMUA data dari database. Taip "PADAM SEMUA" untuk sahkan.') !== 'PADAM SEMUA') {
+        alert('Operasi dibatalkan.'); return;
+    }
+    try {
+        await supabaseClient.from('stocks').delete().gt('id', -1); await supabaseClient.from('sales').delete().gt('id', -1);
+        await supabaseClient.from('expenses').delete().gt('id', -1); await supabaseClient.from('payrolls').delete().gt('id', -1);
+        await supabaseClient.from('payments').delete().gt('id', -1); await supabaseClient.from('clients').delete().gt('id', -1);
+        
+        // Reset Cylinder Inventory
+        CYLINDER_INVENTORY = { OWNED: { q14: 0, q12: 0, qi: 0 }, FACTORY: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 }, TRUCK: { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 } };
+        saveCylinderInventory();
+        
+        alert('Semua data telah berjaya dipadam.');
+    } catch (error) { alert('Gagal memadam semua data.'); }
+}
+function downloadCSV(filename, data, headers) {
+    const processRow = row => headers.map(header => JSON.stringify(row[header.toLowerCase().replace(/\s+/g, '_')] || '')).join(',');
+    const csvContent = [headers.join(','), ...data.map(processRow)].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+}
+
+function printReceipt(saleId) {
+    const s = ALL_SALES.find(x => x.id === saleId); if (!s) return;
+    const total = (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI);
+    const paid  = ((s.paid12||0) * s.price12) + ((s.paid14||0) * s.price14) + ((s.paidI||0) * s.priceI);
+    const receiptHTML = `
+    <div id="receipt">
+      <div style="text-align:center; font-weight:bold; font-size:16px;">Tanjung Homemade Creative</div>
+      <div style="text-align:center; font-size:10px; line-height:1.2;">lot633 jalan guchil bayam, 15200 kota bharu<br>Tel: 01161096469 | SSM: KT0299501-M</div>
+      <hr style="border:0; border-top: 1px dashed black;">
+      <div style="font-size:12px;">
+        <div>No.: INV-${String(s.id).slice(0, 6).toUpperCase()}</div>
+        <div>Date: ${new Date(s.date).toLocaleDateString('ms-MY')}</div>
+        <div>Customer: ${s.client_name}</div>
+      </div>
+      <hr style="border:0; border-top: 1px dashed black;">
+      <table style="width:100%; font-size:11px; border-collapse:collapse; text-align:left;">
+        <thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Amount</th></tr></thead>
+        <tbody>
+          ${s.q14 > 0 ? `<tr><td>Gas 14KG</td><td style="text-align:center;">${s.q14}</td><td style="text-align:right;">${fmt(s.price14)}</td><td style="text-align:right;">${fmt(s.q14 * s.price14)}</td></tr>` : ''}
+          ${s.q12 > 0 ? `<tr><td>Gas 12KG</td><td style="text-align:center;">${s.q12}</td><td style="text-align:right;">${fmt(s.price12)}</td><td style="text-align:right;">${fmt(s.q12 * s.price12)}</td></tr>` : ''}
+          ${s.qi > 0 ? `<tr><td>Gas IND</td><td style="text-align:center;">${s.qi}</td><td style="text-align:right;">${fmt(s.priceI)}</td><td style="text-align:right;">${fmt(s.qi * s.priceI)}</td></tr>` : ''}
+        </tbody>
+      </table>
+      <hr style="border:0; border-top: 1px dashed black;">
+      <div style="margin-top:6px; font-size:12px; text-align:right;">Total: RM ${fmt(total)}<br>Paid: RM ${fmt(paid)}<br><b>Balance: RM ${fmt(total - paid)}</b></div>
+      <hr style="border:0; border-top: 1px dashed black;">
+      <div style="text-align:center; font-size:11px; margin-top:6px;">Thank You</div>
+    </div>`;
+    
+    const printContainer = document.querySelector('.print-container');
+    printContainer.innerHTML = receiptHTML;
+    window.print();
+    setTimeout(() => { printContainer.innerHTML = ''; }, 500);
+}
+
+function resetReportView() {
+    const totalDebtRM = ALL_SALES.reduce((sum, s) => sum + (s.q12 * s.price12) + (s.q14 * s.price14) + (s.qi * s.priceI), 0) - ALL_PAYMENTS.reduce((sum, p) => sum + p.amount, 0);
+
+    const kpis = [
+        ['Jumlah Jualan', 0, true], ['Untung Bersih', 0, true],
+        ['Jumlah Hutang (Semua)', totalDebtRM, true], ['Untung Kasar', 0, true],
+        ['Modal Gas Terpakai', 0, true], ['Modal Lain', 0, true],
+        ['Gaji Dibayar', 0, true], 
+        ['Bayaran Diterima', 0, true, `Tunai: RM 0.00<br>Transfer: RM 0.00`],
+    ];
+
+    document.getElementById('reportKPI').innerHTML = kpis.map(([label, value, isCurrency, subtext]) => {
+        return `<div class="kpi" style="background: var(--surface-2);"><h4>${label}</h4><div class="v">${isCurrency ? `RM ${fmt(value)}` : (value || 0).toLocaleString()}</div>${subtext ? `<div class="sub-v">${subtext}</div>` : ''}</div>`;
+    }).join('');
+    
+    document.querySelectorAll('#reportPeriodBtns button').forEach(btn => btn.classList.remove('active'));
+}
+
+// ==================
+// FUNGSI INVENTORI TONG
 // ==================
 
-// (bahagian asal sistem awak — addStock, addExpense, addSale, addDebtPayment, del*, printReceipt, export CSV, login admin, tukar theme, bottom nav dsb — kekal daripada file lama sebab kita tak ubah logic utama, cuma tambah modul fizikal + panggil dalam renderAll)
+function setCylinderOwnership() {
+    const q14 = +document.getElementById('ownQ14').value || 0;
+    const q12 = +document.getElementById('ownQ12').value || 0;
+    const qi = +document.getElementById('ownQI').value || 0;
+    const total = q14 + q12 + qi;
 
-document.addEventListener('DOMContentLoaded', () => {
-    // butang nav
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const target = btn.getAttribute('data-target');
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById(target).classList.add('active');
-        });
+    if (total <= 0) { alert('Jumlah tong dimiliki mesti lebih dari 0.'); return; }
+    
+    if (!confirm(`Anda pasti mahu menetapkan total tong dimiliki kepada ${total} (${q14}/${q12}/${qi})? Ini hanya menetapkan total dan tidak mengemas kini lokasi/status sedia ada.`)) return;
+
+    CYLINDER_INVENTORY.OWNED = { q14, q12, qi };
+    saveCylinderInventory();
+    recomputeCylinderKPIs();
+    alert(`Total Tong Dimiliki telah ditetapkan kepada ${total}.`);
+}
+
+function handleCylinderMovement() {
+    const type = document.getElementById('moveType').value;
+    const size = document.getElementById('moveSize').value;
+    const qty = +document.getElementById('moveQty').value || 0;
+    if (qty <= 0) { alert('Kuantiti mesti lebih dari 0.'); return; }
+
+    const sizeKey = size.toLowerCase(); 
+    const fullKey = `full${sizeKey.slice(1)}`; 
+    const emptyKey = `empty${sizeKey.slice(1)}`; 
+
+    let error = '';
+
+    // 1. Lori Ambil Tong Berisi (Kilang -> Lori)
+    if (type === 'load_full') {
+        if (CYLINDER_INVENTORY.FACTORY[fullKey] < qty) { error = `Tong Berisi di Kilang tidak mencukupi. Baki: ${CYLINDER_INVENTORY.FACTORY[fullKey]}`; }
+        else { CYLINDER_INVENTORY.FACTORY[fullKey] -= qty; CYLINDER_INVENTORY.TRUCK[fullKey] += qty; }
+    }
+    // 2. Lori Hantar Tong Kosong (Lori -> Kilang)
+    else if (type === 'unload_empty') {
+        if (CYLINDER_INVENTORY.TRUCK[emptyKey] < qty) { error = `Tong Kosong di Lori tidak mencukupi. Baki: ${CYLINDER_INVENTORY.TRUCK[emptyKey]}`; }
+        else { CYLINDER_INVENTORY.TRUCK[emptyKey] -= qty; CYLINDER_INVENTORY.FACTORY[emptyKey] += qty; }
+    }
+    // 3. Lori Ambil Tong Kosong (Kilang -> Lori - jarang, untuk start trip)
+    else if (type === 'load_empty') {
+        if (CYLINDER_INVENTORY.FACTORY[emptyKey] < qty) { error = `Tong Kosong di Kilang tidak mencukupi. Baki: ${CYLINDER_INVENTORY.FACTORY[emptyKey]}`; }
+        else { CYLINDER_INVENTORY.FACTORY[emptyKey] -= qty; CYLINDER_INVENTORY.TRUCK[emptyKey] += qty; }
+    }
+    // 4. Lori Hantar Tong Berisi (Lori -> Kilang - jarang, silap ambil)
+    else if (type === 'unload_full') {
+        if (CYLINDER_INVENTORY.TRUCK[fullKey] < qty) { error = `Tong Berisi di Lori tidak mencukupi. Baki: ${CYLINDER_INVENTORY.TRUCK[fullKey]}`; }
+        else { CYLINDER_INVENTORY.TRUCK[fullKey] -= qty; CYLINDER_INVENTORY.FACTORY[fullKey] += qty; }
+    }
+
+    if (error) { alert(`Gagal: ${error}`); }
+    else { 
+        saveCylinderInventory(); 
+        recomputeCylinderKPIs();
+        document.getElementById('cylinderMoveForm').reset();
+        alert(`Pergerakan ${qty}x ${size} Berjaya direkodkan.`);
+    }
+}
+
+function handleCylinderFilling() {
+    const size = document.getElementById('fillSize').value;
+    const qty = +document.getElementById('fillQty').value || 0;
+    if (qty <= 0) { alert('Kuantiti mesti lebih dari 0.'); return; }
+
+    const sizeKey = size.toLowerCase();
+    const fullKey = `full${sizeKey.slice(1)}`;
+    const emptyKey = `empty${sizeKey.slice(1)}`;
+
+    if (CYLINDER_INVENTORY.FACTORY[emptyKey] < qty) {
+        alert(`Gagal: Tong Kosong di Kilang tidak mencukupi untuk diisi. Baki: ${CYLINDER_INVENTORY.FACTORY[emptyKey]}`);
+    } else {
+        CYLINDER_INVENTORY.FACTORY[emptyKey] -= qty;
+        CYLINDER_INVENTORY.FACTORY[fullKey] += qty;
+        saveCylinderInventory();
+        recomputeCylinderKPIs();
+        document.getElementById('cylinderFillForm').reset();
+        alert(`${qty}x ${size} telah Berjaya diisi (Kosong -> Berisi) di Kilang.`);
+    }
+}
+
+
+// ==================
+// FUNGSI CARIAN KHAS
+// ==================
+function showClientResults(filter = '', resultsId, onSelect, clientList) {
+    const resultsContainer = document.getElementById(resultsId);
+    const clientInput = resultsContainer.previousElementSibling;
+    const searchTerm = filter.toLowerCase();
+    if (!searchTerm && document.activeElement !== clientInput) {
+        resultsContainer.style.display = 'none'; return;
+    }
+    const filteredClients = clientList.filter(client => 
+        client.name.toLowerCase().includes(searchTerm) || 
+        (client.cat && client.cat.toLowerCase().includes(searchTerm))
+    );
+    if (filteredClients.length === 0) { resultsContainer.style.display = 'none'; return; }
+    resultsContainer.innerHTML = filteredClients.map(client => 
+        `<div class="search-results-item" onclick="${onSelect.name}('${client.name}')">
+            ${client.name} <span style="color: var(--text-secondary); font-size: 0.8em;">(${client.cat || 'Tiada Kategori'})</span>
+        </div>`
+    ).join('');
+    resultsContainer.style.display = 'block';
+}
+function selectClient(name) {
+    document.getElementById('slClient').value = name;
+    document.getElementById('client-search-results').style.display = 'none';
+    calcSale();
+}
+function selectDebtClient(name) {
+    document.getElementById('debtClient').value = name;
+    document.getElementById('debt-client-search-results').style.display = 'none';
+    document.getElementById('debtClient').dispatchEvent(new Event('input'));
+}
+
+// ==================
+// SETUP PERMULAAN
+// ==================
+function setupUIListeners() {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(`view-${btn.dataset.view}`).classList.add('active');
+    }));
+    const toggleBtn = document.getElementById('toggleRecordsBtn');
+    toggleBtn.addEventListener('click', () => {
+        const isHidden = document.body.classList.toggle('records-hidden');
+        toggleBtn.textContent = isHidden ? 'Tunjuk Rekod' : 'Sembunyi Rekod';
     });
-
-    // theme
-    const savedTheme = localStorage.getItem(THEME_KEY);
-    if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
-    const themeBtn = document.getElementById('themeBtn');
-    if (themeBtn) {
-        themeBtn.addEventListener('click', () => {
-            const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', cur);
-            localStorage.setItem(THEME_KEY, cur);
-        });
-    }
-
-    // sembunyi rekod
-    const toggleRecordsBtn = document.getElementById('toggleRecordsBtn');
-    if (toggleRecordsBtn) {
-        toggleRecordsBtn.addEventListener('click', () => {
-            document.body.classList.toggle('records-hidden');
-            toggleRecordsBtn.textContent = document.body.classList.contains('records-hidden') ? 'Tunjuk Rekod' : 'Sembunyi Rekod';
-        });
-    }
-
-    // login admin
-    const adminLoginBtn = document.getElementById('btnAdminLogin');
-    if (adminLoginBtn) {
-        adminLoginBtn.addEventListener('click', () => {
-            const pin = document.getElementById('adminPIN').value;
-            if (pin === getPIN()) {
-                document.getElementById('adminArea').style.display = 'block';
-                initPhysicalForm(); // pastikan borang fizikal hidup bila login
-            } else {
-                alert('PIN salah');
-            }
-        });
-    }
-
-    // tukar pin
-    const savePINBtn = document.getElementById('savePIN');
-    if (savePINBtn) {
-        savePINBtn.addEventListener('click', () => {
-            const v = document.getElementById('setPIN').value.trim();
-            if (!v) return;
-            setPIN(v);
-            alert('PIN berjaya ditukar');
-        });
-    }
-
-    // reset counter
-    const resetCounterBtn = document.getElementById('resetCounterBtn');
-    if (resetCounterBtn) {
-        resetCounterBtn.addEventListener('click', () => {
-            COUNTERS.soldAtReset = { q12: totalSold('q12'), q14: totalSold('q14'), qi: totalSold('qi') };
+    document.getElementById('addStock').addEventListener('click', addStock);
+    document.getElementById('addExpense').addEventListener('click', addExpense);
+    document.getElementById('addClient').addEventListener('click', addClient);
+    document.getElementById('addSale').addEventListener('click', addSale);
+    document.getElementById('btnPayDebt').addEventListener('click', addDebtPayment);
+    document.getElementById('addPayroll').addEventListener('click', addPayroll);
+    
+    // --- LISTENER BARU UNTUK INVENTORI TONG ---
+    document.getElementById('btnSetOwned').addEventListener('click', setCylinderOwnership);
+    document.getElementById('btnMoveCylinder').addEventListener('click', handleCylinderMovement);
+    document.getElementById('btnFillCylinder').addEventListener('click', handleCylinderFilling);
+    
+    document.getElementById('savePIN').addEventListener('click', () => {
+        const newPin = document.getElementById('setPIN').value;
+        if (newPin) { setPIN(newPin); alert('PIN baru telah disimpan.'); }
+        else { alert('PIN tidak boleh kosong.'); }
+    });
+    document.getElementById('deleteAllDataBtn').addEventListener('click', deleteAllData);
+    document.getElementById('resetAllSalesBtn').addEventListener('click', async () => {
+        if(prompt('AWAS! Ini akan memadam semua Jualan dan Bayaran. Taip "PADAM JUALAN" untuk sahkan.') === 'PADAM JUALAN') {
+            await supabaseClient.from('sales').delete().gt('id', -1);
+            await supabaseClient.from('payments').delete().gt('id', -1);
+            // Jualan/Bayaran dipadam, Tong Kosong lori perlu dikosongkan (dianggap semua sudah dihantar balik)
+            CYLINDER_INVENTORY.TRUCK = { full14: 0, empty14: 0, full12: 0, empty12: 0, fullI: 0, emptyI: 0 };
+            saveCylinderInventory();
+        }
+    });
+     document.getElementById('resetCounterBtn').addEventListener('click', () => {
+        if(confirm('Anda pasti mahu reset kiraan "Terjual" kepada 0?')){
+            COUNTERS.soldAtReset.q12 = ALL_SALES.reduce((sum, s) => sum + (s.q12 || 0), 0);
+            COUNTERS.soldAtReset.q14 = ALL_SALES.reduce((sum, s) => sum + (s.q14 || 0), 0);
+            COUNTERS.soldAtReset.qi = ALL_SALES.reduce((sum, s) => sum + (s.qi || 0), 0);
             saveCounters();
             recomputeSummary();
-            alert('Kiraan "Sold" telah direset.');
+            alert('Kiraan "Terjual" telah direset.');
+        }
+    });
+
+    document.getElementById('resetReportBtn').addEventListener('click', resetReportView);
+
+    // Event listeners untuk butang eksport CSV
+    document.getElementById('exportSalesCsv').addEventListener('click', () => downloadCSV(`Jualan_${today()}.csv`, ALL_SALES, ['date', 'client_name', 'q14', 'paid14', 'q12', 'paid12', 'qi', 'paidI', 'price14', 'price12', 'priceI', 'payType']));
+    document.getElementById('exportStocksCsv').addEventListener('click', () => downloadCSV(`Stok_${today()}.csv`, ALL_STOCKS, ['date', 'note', 'batch', 'q14', 'c14', 'q12', 'c12', 'qi', 'ci']));
+    document.getElementById('exportExpensesCsv').addEventListener('click', () => {
+        const allExpenses = [...ALL_EXPENSES.map(e => ({...e, 'jenis_rekod': 'Modal Lain'})), ...ALL_PAYROLLS.map(p => ({...p, 'jenis_rekod': 'Gaji'}))];
+        downloadCSV(`Perbelanjaan_${today()}.csv`, allExpenses, ['date', 'jenis_rekod', 'name', 'type', 'amount', 'note']);
+    });
+    
+    function exportClientsCsv() {
+        const dataToExport = ALL_CLIENTS.map(c => {
+            const debt = computeClientDebt(c.name);
+            return { ...c, hutang_rm: debt.rm, hutang_tong_14kg: debt.q14, hutang_tong_12kg: debt.q12, hutang_tong_industri: debt.qi };
         });
+        const headers = ['name', 'cat', 'p14', 'p12', 'pi', 'hutang_rm', 'hutang_tong_14kg', 'hutang_tong_12kg', 'hutang_tong_industri'];
+        downloadCSV(`Pelanggan_${today()}.csv`, dataToExport, headers);
     }
+    function exportPaymentsCsv() {
+        downloadCSV(`Bayaran_${today()}.csv`, ALL_PAYMENTS, ['date', 'client_name', 'amount', 'method', 'note', 'q14', 'q12', 'qi']);
+    }
+    document.getElementById('exportClientsCsv').addEventListener('click', exportClientsCsv);
+    document.getElementById('exportPaymentsCsv').addEventListener('click', exportPaymentsCsv);
 
+    const slClientInput = document.getElementById('slClient');
+    slClientInput.addEventListener('input', (e) => showClientResults(e.target.value, 'client-search-results', selectClient, ALL_CLIENTS));
+    slClientInput.addEventListener('focus', (e) => showClientResults('', 'client-search-results', selectClient, ALL_CLIENTS));
+    const debtClientInput = document.getElementById('debtClient');
+    debtClientInput.addEventListener('input', (e) => {
+        const debtClients = ALL_CLIENTS.filter(c => computeClientDebt(c.name).rm > 0);
+        showClientResults(e.target.value, 'debt-client-search-results', selectDebtClient, debtClients);
+    });
+    debtClientInput.addEventListener('focus', (e) => {
+        const debtClients = ALL_CLIENTS.filter(c => computeClientDebt(c.name).rm > 0);
+        showClientResults('', 'debt-client-search-results', selectDebtClient, debtClients);
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+            document.getElementById('client-search-results').style.display = 'none';
+            document.getElementById('debt-client-search-results').style.display = 'none';
+        }
+    });
+    document.getElementById('debtClient').addEventListener('input', (e) => {
+        const clientName = e.target.value;
+        const debtInfo = document.getElementById('debtInfo');
+        if (!clientName || !ALL_CLIENTS.find(c => c.name === clientName)) {
+             debtInfo.innerHTML = 'Pilih pelanggan yang sah untuk lihat baki hutang.'; 
+             return;
+        }
+        const debt = computeClientDebt(clientName);
+        debtInfo.innerHTML = `Baki hutang: <b>RM ${fmt(debt.rm)}</b> | Tong (14/12/I): <b>${debt.q14}/${debt.q12}/${debt.qi}</b>`;
+    });
+    ['slClient', 'slQ14', 'slPaid14', 'slQ12', 'slPaid12', 'slQI', 'slPaidI'].forEach(id => document.getElementById(id).addEventListener('input', calcSale));
+    document.getElementById('btnAdminLogin').addEventListener('click', () => {
+        if (document.getElementById('adminPIN').value === getPIN()) {
+            document.getElementById('adminLogin').style.display = 'none';
+            document.getElementById('adminArea').style.display = 'block';
+        } else { alert('PIN salah'); }
+    });
+
+    document.getElementById('reportPeriodBtns').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const period = e.target.dataset.period;
+            document.querySelectorAll('#reportPeriodBtns button').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            renderReport(period);
+        }
+    });
+
+    ['stDate', 'exDate', 'slDate', 'pgDate'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = today(); });
+    const themeBtn = document.getElementById('themeBtn');
+    const currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    themeBtn.onclick = () => {
+        const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem(THEME_KEY, newTheme);
+    };
+}
+
+function calcSale(){
+    const client = ALL_CLIENTS.find(c => c.name === document.getElementById('slClient').value);
+    if(!client) { document.getElementById('slCalc').innerHTML = 'Pilih pelanggan yang sah.'; return; }
+    const q14 = +document.getElementById('slQ14').value || 0, paid14 = +document.getElementById('slPaid14').value || 0;
+    const q12 = +document.getElementById('slQ12').value || 0, paid12 = +document.getElementById('slPaid12').value || 0;
+    const qi = +document.getElementById('slQI').value || 0, paidI = +document.getElementById('slPaidI').value || 0;
+    
+    const totalSale = (q14 * client.p14) + (q12 * client.p12) + (qi * client.pi);
+    const totalPaid = (paid14 * client.p14) + (paid12 * client.p12) + (paidI * client.pi);
+    const debt = totalSale - totalPaid;
+
+    document.getElementById('slCalc').innerHTML = `Jumlah Jualan: <b>RM ${fmt(totalSale)}</b><br>Jumlah Dibayar: <b>RM ${fmt(totalPaid)}</b><br>Baki Hutang: <b>RM ${fmt(debt)}</b>`;
+}
+
+function listenToDatabaseChanges() {
+    console.log('Mula mendengar perubahan database secara realtime...');
+    const subscription = supabaseClient
+        .channel('public-tables')
+        .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+            console.log('Perubahan diterima!', payload);
+            renderAll();
+        })
+        .subscribe();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadCounters();
+    loadCylinderInventory(); // Pastikan inventori tong dimuatkan
+    setupUIListeners();
     renderAll();
+    listenToDatabaseChanges();
 });
-
-// helper guna fungsi lama
-function totalSold(key) {
-    return ALL_SALES.reduce((sum, s) => sum + (s[key] || 0), 0);
-}
-function saveCounters() {
-    localStorage.setItem(COUNTERS_KEY, JSON.stringify(COUNTERS));
-}

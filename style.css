@@ -137,6 +137,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .record-list .summary-meta { font-size: 0.8rem; color: var(--text-secondary); }
 .record-list .details-content { padding: 0 12px 12px; }
 .record-list .details-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.9rem; }
+.record-list .details-row:not(:last-child) { border-bottom: 1px dashed var(--border); }
 .record-list .details-row .label { color: var(--text-secondary); }
 .record-list .details-row .value { font-weight: 500; }
 .record-actions { display: flex; gap: 8px; align-items: center; }
